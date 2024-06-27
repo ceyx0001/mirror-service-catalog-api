@@ -23,7 +23,7 @@ if (process.env.MODE === "development") {
 }
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)({
-// origin: process.env.ORIGIN,
+    origin: process.env.ORIGIN,
 }));
 app.set("trust proxy", 1);
 const timeout = 1 * 5 * 1000;

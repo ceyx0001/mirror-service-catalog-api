@@ -9,7 +9,9 @@ router.get("/threads", catalog.allThreads);
 router.get("/threads/range", catalog.threadsInRange);
 router.get("/shops/range", catalog.shopsInRange);
 router.get("/shop/:threadIndex", shop);
-
 router.get("/items/filter", catalog.filteredItems);
+router.get("/", (req, res) => {
+  res.redirect("/shops/range");
+});
 
 export default router;

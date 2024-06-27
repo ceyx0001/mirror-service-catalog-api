@@ -4,6 +4,7 @@ import { items } from "./itemsSchema";
 
 export const catalog = pgTable("catalog", {
   profileName: text("profileName").notNull().primaryKey(),
+  characterName: text("characterName"),
   threadIndex: integer("threadIndex").unique(),
   views: integer("views"),
   title: text("title"),

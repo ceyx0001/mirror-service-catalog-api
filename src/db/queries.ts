@@ -1,14 +1,14 @@
 import db from "./db";
 import { catalog } from "./schemas/catalogSchema";
-import { items } from "./schemas/itemsSchema";
+import { SelectItem, items } from "./schemas/itemsSchema";
 import { mods } from "./schemas/modsSchema";
 import { desc, sql, inArray } from "drizzle-orm";
-import { filterItems, groupMods, Filters} from "./searches/search";
+import { filterItems, groupMods, Filters } from "./searches/search";
 
 function buildConflictUpdateSet(table) {
   const columns = Object.keys(table);
   return columns.reduce((acc, column) => {
-    acc[column] = sql.raw(`excluded.${column}`);
+    acc[column] = sql`excluded.${sql.identifier(column)}`;
     return acc;
   }, {});
 }
@@ -68,7 +68,7 @@ export async function updateCatalog(shops) {
     const shopsToInsert = shops.map((shop) => {
       shop.items.forEach((item) => {
         if (!itemsToInsert.has(item.id)) {
-          const dbItem = {
+          const dbItem: SelectItem = {
             name: item.name,
             baseType: item.baseType,
             icon: item.icon,
@@ -80,12 +80,7 @@ export async function updateCatalog(shops) {
           aggregateMods(item, modsToInsert);
         }
       });
-      return {
-        profileName: shop.profileName,
-        threadIndex: shop.threadIndex,
-        views: shop.views,
-        title: shop.title,
-      };
+      return shop;
     });
 
     const shopsPromise = db

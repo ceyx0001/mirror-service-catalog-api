@@ -2,17 +2,20 @@ import axios from "axios";
 import { load } from "cheerio";
 import asyncHandler from "express-async-handler";
 import { Request, Response } from "express";
+import { char } from "drizzle-orm/mysql-core";
 
 const getShopData = async (index) => {
+  const headers = {
+    headers: {
+      "User-Agent": `Mirror-Catalog/1.0.0 (contact:/${process.env.DEV_EMAIL}) StrictMode`,
+    },
+  };
+
   try {
     // clean response into array of JSON objects
     let serviceItems = [];
     const threadUrl = `https://www.pathofexile.com/forum/view-thread/${index}`;
-    const threadResponse = await axios.get(threadUrl, {
-      headers: {
-        "User-Agent": `Mirror-Catalog/1.0 (${process.env.DEV_EMAIL}) Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3`,
-      },
-    });
+    const threadResponse = await axios.get(threadUrl, headers);
     const threadDocument = load(threadResponse.data);
     const scriptContent = threadDocument("script")
       .last()
@@ -21,6 +24,29 @@ const getShopData = async (index) => {
     const profileName = threadDocument("tr .post_info .posted-by .profile-link")
       .first()
       .text();
+
+    const contentText = threadDocument(".content-container").first().text();
+    let characterName = null;
+    if (contentText) {
+      let ign = contentText.match(/IGN:\s(.*)/);
+      if (ign) {
+        characterName = ign[1];
+      } else {
+        let at = contentText.match(/@(.*)/);
+        if (at) {
+          characterName = at[1];
+        }
+      }
+    }
+    
+    //const apiUrl = `http://www.pathofexile.com/character-window/get-characters?accountName=${profileName}`;
+    //const characterResponse = (await axios.get(apiUrl, headers)).data;
+    /*for (const character of characterResponse) {
+      if (character.league === "Standard") {
+        characterName = character.name;
+        break;
+      }
+    } implemenet rate limit */
 
     if (scriptContent.includes("DeferredItemRenderer")) {
       const arrayStartIndex = scriptContent.indexOf("new R(") + 6; // clean string
@@ -59,9 +85,9 @@ const getShopData = async (index) => {
                 crucibleMods: item[1].crucibleMods || null,
               };
             } catch (error) {
-              console.log(error);
-              console.log(item[1].properties);
-              console.log(index);
+              console.error(error);
+              console.error(item[1].properties);
+              console.error(index);
             }
           }
         })
@@ -70,6 +96,7 @@ const getShopData = async (index) => {
 
     return {
       profileName: profileName,
+      characterName: characterName,
       threadIndex: parseInt(index),
       items: serviceItems,
     };

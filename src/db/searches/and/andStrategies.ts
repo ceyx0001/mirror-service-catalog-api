@@ -13,7 +13,6 @@ async function applyFilters(
   filters: string[],
   parentTable: PgTable,
   key: string,
-  parentTableName: string,
   columns: string[]
 ): Promise<[] | Error> {
   try {
@@ -60,9 +59,7 @@ export const andTitleFilter: Strategy = {
     if (!filter) {
       return null;
     }
-    return await applyFilters(filter, table, "threadIndex", "catalog", [
-      "title",
-    ]);
+    return await applyFilters(filter, table, "threadIndex", ["title"]);
   },
 };
 
@@ -84,7 +81,7 @@ export const andBaseFilter: Strategy = {
       return await db.select().from(filteredBase);
     }
 
-    return await applyFilters(filter, filteredBase, "itemId", "items", [
+    return await applyFilters(filter, filteredBase, "itemId", [
       "baseType",
       "name",
       "quality",
@@ -109,6 +106,6 @@ export const andModFilter: Strategy = {
     if (!filter) {
       return await db.select().from(filteredMods);
     }
-    return await applyFilters(filter, filteredMods, "itemId", "mods", ["mod"]);
+    return await applyFilters(filter, filteredMods, "itemId", ["mod"]);
   },
 };

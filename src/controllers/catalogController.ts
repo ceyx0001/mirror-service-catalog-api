@@ -12,13 +12,11 @@ export const catalogUpdate = asyncHandler(
 
       const threadReq = { query: { startPage: startPage, endPage: endPage } };
       const serviceThreads = await threads(threadReq, next);
-      // Create a new request object for each thread
       const requests = serviceThreads.map(async (thread) => {
         const shopData = await shop(thread.index);
         return { ...shopData, views: thread.views, title: thread.title };
       });
 
-      // Wait for all shop operations to complete
       const shops = await Promise.all(requests);
 
       const uniqueShops = new Map();
@@ -64,7 +62,7 @@ export const shopsInRange = asyncHandler(
 );
 
 export const filteredItems = asyncHandler(
-  async (req: Request, res: Response, next) => {
+  async (req: Request, res: Response) => {
     const filters = {
       titleFilters:
         req.query.title !== undefined

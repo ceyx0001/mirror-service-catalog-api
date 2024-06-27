@@ -28,17 +28,17 @@ const getShopData = async (index) => {
     const contentText = threadDocument(".content-container").first().text();
     let characterName = null;
     if (contentText) {
-      let ign = contentText.match(/IGN:\s(.*)/);
+      let ign = contentText.match(/IGN:\s(\S*)/);
       if (ign) {
         characterName = ign[1];
       } else {
-        let at = contentText.match(/@(.*)/);
+        let at = contentText.match(/@(\S*)/);
         if (at) {
           characterName = at[1];
         }
       }
     }
-    
+
     //const apiUrl = `http://www.pathofexile.com/character-window/get-characters?accountName=${profileName}`;
     //const characterResponse = (await axios.get(apiUrl, headers)).data;
     /*for (const character of characterResponse) {

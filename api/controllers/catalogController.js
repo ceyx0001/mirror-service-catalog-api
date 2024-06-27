@@ -46,12 +46,10 @@ exports.catalogUpdate = (0, express_async_handler_1.default)((req, res, next) =>
         const endPage = parseInt(req.query.endPage, 10) || 50;
         const threadReq = { query: { startPage: startPage, endPage: endPage } };
         const serviceThreads = yield (0, threadsController_1.threads)(threadReq, next);
-        // Create a new request object for each thread
         const requests = serviceThreads.map((thread) => __awaiter(void 0, void 0, void 0, function* () {
             const shopData = yield (0, shopController_1.default)(thread.index);
             return Object.assign(Object.assign({}, shopData), { views: thread.views, title: thread.title });
         }));
-        // Wait for all shop operations to complete
         const shops = yield Promise.all(requests);
         const uniqueShops = new Map();
         shops.map((shop) => {
@@ -85,7 +83,7 @@ exports.shopsInRange = (0, express_async_handler_1.default)((req, res) => __awai
     const limit = req.query.limit || 1;
     res.json(yield db.getShopsInRange(offset, limit));
 }));
-exports.filteredItems = (0, express_async_handler_1.default)((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+exports.filteredItems = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const filters = {
         titleFilters: req.query.title !== undefined
             ? Array.isArray(req.query.title)

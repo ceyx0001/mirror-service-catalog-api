@@ -18,7 +18,7 @@ const drizzle_orm_1 = require("drizzle-orm");
 const catalogSchema_1 = require("../../schemas/catalogSchema");
 const itemsSchema_1 = require("../../schemas/itemsSchema");
 const modsSchema_1 = require("../../schemas/modsSchema");
-function applyFilters(filters, parentTable, key, parentTableName, columns) {
+function applyFilters(filters, parentTable, key, columns) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             let condition = (0, drizzle_orm_1.or)(...columns.map((column) => (0, drizzle_orm_1.ilike)(parentTable[column], `%${filters.pop()}%`)));
@@ -46,9 +46,7 @@ exports.andTitleFilter = {
         if (!filter) {
             return null;
         }
-        return yield applyFilters(filter, table, "threadIndex", "catalog", [
-            "title",
-        ]);
+        return yield applyFilters(filter, table, "threadIndex", ["title"]);
     }),
 };
 exports.andBaseFilter = {
@@ -68,7 +66,7 @@ exports.andBaseFilter = {
         if (!filter) {
             return yield db_1.default.select().from(filteredBase);
         }
-        return yield applyFilters(filter, filteredBase, "itemId", "items", [
+        return yield applyFilters(filter, filteredBase, "itemId", [
             "baseType",
             "name",
             "quality",
@@ -92,6 +90,6 @@ exports.andModFilter = {
         if (!filter) {
             return yield db_1.default.select().from(filteredMods);
         }
-        return yield applyFilters(filter, filteredMods, "itemId", "mods", ["mod"]);
+        return yield applyFilters(filter, filteredMods, "itemId", ["mod"]);
     }),
 };

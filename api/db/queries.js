@@ -26,7 +26,7 @@ const search_1 = require("./searches/search");
 function buildConflictUpdateSet(table) {
     const columns = Object.keys(table);
     return columns.reduce((acc, column) => {
-        acc[column] = drizzle_orm_1.sql.raw(`excluded.${column}`);
+        acc[column] = (0, drizzle_orm_1.sql) `excluded.${drizzle_orm_1.sql.identifier(column)}`;
         return acc;
     }, {});
 }
@@ -97,12 +97,7 @@ function updateCatalog(shops) {
                         aggregateMods(item, modsToInsert);
                     }
                 });
-                return {
-                    profileName: shop.profileName,
-                    threadIndex: shop.threadIndex,
-                    views: shop.views,
-                    title: shop.title,
-                };
+                return shop;
             });
             const shopsPromise = db_1.default
                 .insert(catalogSchema_1.catalog)

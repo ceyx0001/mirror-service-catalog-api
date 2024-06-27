@@ -36,4 +36,7 @@ router.get("/threads/range", catalog.threadsInRange);
 router.get("/shops/range", catalog.shopsInRange);
 router.get("/shop/:threadIndex", shopController_1.default);
 router.get("/items/filter", catalog.filteredItems);
+router.get("/", (req, res) => {
+    res.redirect("/shops/range");
+});
 exports.default = router;

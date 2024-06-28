@@ -25,17 +25,25 @@ const getShopData = async (index) => {
       .first()
       .text();
 
-    const contentText = threadDocument(".content-container").first().text();
+    const contentString = threadDocument(".content-container").first().text();
     let characterName = null;
-    if (contentText) {
-      let ign = contentText.match(/IGN:\s(\S*)/);
+    let fees = [];
+    let feeindex = 0;
+    if (contentString) {
+      let ign = contentString.match(/IGN:\s(\S*)/i);
       if (ign) {
         characterName = ign[1];
-      } else {
-        let at = contentText.match(/@(\S*)/);
-        if (at) {
-          characterName = at[1];
-        }
+      }
+      let at = contentString.match(/@(\S*)/i);
+      if (at) {
+        characterName = at[1];
+      }
+
+      const feesString = contentString.match(/Fee: (\d+)/gi);
+      if (feesString) {
+        feesString.forEach((feeString) =>
+          fees.push(parseInt(feeString.split(":")[1].trim()))
+        );
       }
     }
 
@@ -71,8 +79,13 @@ const getShopData = async (index) => {
                   itemQuality = qualityArray.values[0][0].replace(/\D/g, "");
                 }
               }
+              let fee = null;
+              if (feeindex < fees.length) {
+                fee = fees[feeindex];
+              }
               return {
                 id: item[1].id,
+                fee: fee,
                 icon: item[1].icon,
                 name: item[1].name,
                 baseType: item[1].baseType,

@@ -28,7 +28,6 @@ const getShopData = async (index) => {
     const contentString = threadDocument(".content-container").first().text();
     let characterName = null;
     let fees = [];
-    let feeindex = 0;
     if (contentString) {
       let ign = contentString.match(/IGN:\s(\S*)/i);
       if (ign) {
@@ -39,11 +38,16 @@ const getShopData = async (index) => {
         characterName = at[1];
       }
 
-      const feesString = contentString.match(/Fee: (\d+)/gi);
+      const feesString = contentString.match(/Fee: (\S+)/gi);
       if (feesString) {
-        feesString.forEach((feeString) =>
-          fees.push(parseInt(feeString.split(":")[1].trim()))
-        );
+        feesString.forEach((feeString) => {
+          const feeInt = parseInt(feeString.split(":")[1].trim());
+          if (Number.isNaN(feeInt)) {
+            fees.push(null);
+          } else {
+            fees.push(parseInt(feeString.split(":")[1].trim()));
+          }
+        });
       }
     }
 
@@ -66,26 +70,27 @@ const getShopData = async (index) => {
             item[1].name !== "" &&
             !("duplicated" in item[1]) &&
             item[1].rarity !== "Unique" &&
-            !item[1].baseType.includes(" Jewel") &&
             !item[1].baseType.includes("Map")
           ) {
             try {
               let itemQuality;
-              if (item[1].properties) {
-                const qualityArray = item[1].properties.find((property) =>
-                  /^Quality.*/.test(property.name)
-                );
-                if (qualityArray) {
-                  itemQuality = qualityArray.values[0][0].replace(/\D/g, "");
+              if (item[1].baseType.includes(" Jewel")) {
+              } else {
+                if (
+                  item[1].properties &&
+                  !item[1].baseType.includes(" Jewel")
+                ) {
+                  const qualityArray = item[1].properties.find((property) =>
+                    /^Quality.*/.test(property.name)
+                  );
+                  if (qualityArray) {
+                    itemQuality = qualityArray.values[0][0].replace(/\D/g, "");
+                  }
                 }
-              }
-              let fee = null;
-              if (feeindex < fees.length) {
-                fee = fees[feeindex];
               }
               return {
                 id: item[1].id,
-                fee: fee,
+                fee: fees.shift(),
                 icon: item[1].icon,
                 name: item[1].name,
                 baseType: item[1].baseType,

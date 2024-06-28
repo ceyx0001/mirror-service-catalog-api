@@ -23,69 +23,70 @@ const itemsSchema_1 = require("./schemas/itemsSchema");
 const modsSchema_1 = require("./schemas/modsSchema");
 const drizzle_orm_1 = require("drizzle-orm");
 const search_1 = require("./searches/search");
-function buildConflictUpdateSet(table) {
-    const columns = Object.keys(table);
-    return columns.reduce((acc, column) => {
-        acc[column] = (0, drizzle_orm_1.sql) `excluded.${drizzle_orm_1.sql.identifier(column)}`;
-        return acc;
-    }, {});
-}
-function setMods(map, itemId, modType, mods) {
-    if (mods) {
-        for (const text of mods) {
-            const key = itemId + modType + text;
-            if (map.get(key)) {
-                const oldMod = map.get(key);
-                oldMod.dupes += 1;
-                map.set(key, oldMod);
-            }
-            else {
-                map.set(key, {
-                    itemId: itemId,
-                    mod: text,
-                    type: modType,
-                    dupes: null,
-                });
-            }
-        }
-    }
-}
-function aggregateMods(item, map) {
-    for (const key in item) {
-        if (item[key]) {
-            switch (key) {
-                case "enchantMods":
-                    setMods(map, item.id, "enchant", item[key]);
-                    break;
-                case "implicitMods":
-                    setMods(map, item.id, "implicit", item[key]);
-                    break;
-                case "explicitMods":
-                    setMods(map, item.id, "explicit", item[key]);
-                    break;
-                case "fracturedMods":
-                    setMods(map, item.id, "fractured", item[key]);
-                    break;
-                case "craftedMods":
-                    setMods(map, item.id, "crafted", item[key]);
-                    break;
-                case "crucibleMods":
-                    setMods(map, item.id, "crucible", item[key]);
-                    break;
-                default:
-            }
-        }
-    }
-}
 function updateCatalog(shops) {
     return __awaiter(this, void 0, void 0, function* () {
+        function buildConflictUpdateSet(table) {
+            const columns = Object.keys(table);
+            return columns.reduce((acc, column) => {
+                acc[column] = (0, drizzle_orm_1.sql) `excluded.${drizzle_orm_1.sql.identifier(column)}`;
+                return acc;
+            }, {});
+        }
         const itemsToInsert = new Map();
         const modsToInsert = new Map();
+        function setMods(itemId, modType, mods) {
+            if (mods) {
+                for (const text of mods) {
+                    const key = itemId + modType + text;
+                    if (modsToInsert.get(key)) {
+                        const oldMod = modsToInsert.get(key);
+                        oldMod.dupes += 1;
+                        modsToInsert.set(key, oldMod);
+                    }
+                    else {
+                        modsToInsert.set(key, {
+                            itemId: itemId,
+                            mod: text,
+                            type: modType,
+                            dupes: null,
+                        });
+                    }
+                }
+            }
+        }
+        function aggregateMods(item) {
+            for (const key in item) {
+                if (item[key]) {
+                    switch (key) {
+                        case "enchantMods":
+                            setMods(item.id, "enchant", item[key]);
+                            break;
+                        case "implicitMods":
+                            setMods(item.id, "implicit", item[key]);
+                            break;
+                        case "explicitMods":
+                            setMods(item.id, "explicit", item[key]);
+                            break;
+                        case "fracturedMods":
+                            setMods(item.id, "fractured", item[key]);
+                            break;
+                        case "craftedMods":
+                            setMods(item.id, "crafted", item[key]);
+                            break;
+                        case "crucibleMods":
+                            setMods(item.id, "crucible", item[key]);
+                            break;
+                        default:
+                    }
+                }
+            }
+        }
         try {
             const shopsToInsert = shops.map((shop) => {
                 shop.items.forEach((item) => {
                     if (!itemsToInsert.has(item.id)) {
                         const dbItem = {
+                            fee: item.fee,
                             name: item.name,
                             baseType: item.baseType,
                             icon: item.icon,
@@ -94,7 +95,7 @@ function updateCatalog(shops) {
                             shopId: shop.threadIndex,
                         };
                         itemsToInsert.set(item.id, dbItem);
-                        aggregateMods(item, modsToInsert);
+                        aggregateMods(item);
                     }
                 });
                 return shop;

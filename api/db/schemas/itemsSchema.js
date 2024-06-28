@@ -7,6 +7,7 @@ const catalogSchema_1 = require("./catalogSchema");
 const modsSchema_1 = require("./modsSchema");
 exports.items = (0, pg_core_1.pgTable)("items", {
     itemId: (0, pg_core_1.text)("itemId").primaryKey().notNull(),
+    fee: (0, pg_core_1.integer)("fee"),
     icon: (0, pg_core_1.text)("icon"),
     name: (0, pg_core_1.text)("name"),
     baseType: (0, pg_core_1.text)("baseType"),

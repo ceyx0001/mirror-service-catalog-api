@@ -29,16 +29,16 @@ const getShopData = async (index) => {
     let characterName = null;
     let fees = [];
     if (contentString) {
-      let ign = contentString.match(/IGN:\s(\S*)/i);
+      let ign = contentString.match(/IGN:\s(\S*)/);
       if (ign) {
         characterName = ign[1];
       }
-      let at = contentString.match(/@(\S*)/i);
+      let at = contentString.match(/@(\S*)/);
       if (at) {
         characterName = at[1];
       }
 
-      const feesString = contentString.match(/Fee: (\S+)/gi);
+      const feesString = contentString.match(/Fee: (\S+)/g);
       if (feesString) {
         feesString.forEach((feeString) => {
           const feeInt = parseInt(feeString.split(":")[1].trim());
@@ -50,7 +50,7 @@ const getShopData = async (index) => {
         });
       }
     }
-
+    console.log(fees);
     //const apiUrl = `http://www.pathofexile.com/character-window/get-characters?accountName=${profileName}`;
     //const characterResponse = (await axios.get(apiUrl, headers)).data;
     /*for (const character of characterResponse) {
@@ -111,7 +111,6 @@ const getShopData = async (index) => {
         })
         .filter(Boolean);
     }
-
     return {
       profileName: profileName,
       characterName: characterName,

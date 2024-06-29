@@ -19,6 +19,8 @@ export async function getItems(filters: Filters) {
         filteredTable
       );
     }
+
+    // need to not use entire table if the previous filter didnt do anything -> test searching for a title only that doesnt exist
     if (filteredTable && filteredTable.length > 0) {
       const itemIdSet = new Set<string>();
       filteredTable.map((mod: { itemId: string }) => itemIdSet.add(mod.itemId));

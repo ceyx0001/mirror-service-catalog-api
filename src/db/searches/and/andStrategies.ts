@@ -65,8 +65,12 @@ export const andTitleFilter: Strategy = {
 
 export const andBaseFilter: Strategy = {
   apply: async (filter: string[], table: SelectCatalog[]) => {
+    if (table && table.length === 0) {
+      return [];
+    }
+
     let filteredBase: PgTable;
-    if (table && table.length > 0) {
+    if (table) {
       const threadIndexes = table.map((shop) => shop.threadIndex);
       filteredBase = await db
         .select()
@@ -91,6 +95,10 @@ export const andBaseFilter: Strategy = {
 
 export const andModFilter: Strategy = {
   apply: async (filter: string[], table: SelectItem[]) => {
+    if (table && table.length === 0) {
+      return [];
+    }
+
     let filteredMods: PgTable;
     if (table && table.length > 0) {
       const itemIds = table.map((item) => item.itemId);

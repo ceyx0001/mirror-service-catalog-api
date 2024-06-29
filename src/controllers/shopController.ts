@@ -2,9 +2,8 @@ import axios from "axios";
 import { load } from "cheerio";
 import asyncHandler from "express-async-handler";
 import { Request, Response } from "express";
-import { char } from "drizzle-orm/mysql-core";
 
-const getShopData = async (index) => {
+export const getShopData = async (index) => {
   const headers = {
     headers: {
       "User-Agent": `Mirror-Catalog/1.0.0 (contact:/${process.env.DEV_EMAIL}) StrictMode`,
@@ -121,14 +120,7 @@ const getShopData = async (index) => {
   }
 };
 
-const shop = asyncHandler(async (req: Request, res: Response) => {
-  if (res) {
+export const getShops = asyncHandler(async (req: Request, res: Response) => {
     const data = await getShopData(req.params.threadIndex);
     return res.json(data);
-  } else {
-    const data = await getShopData(req);
-    return data;
-  }
 });
-
-export default shop;

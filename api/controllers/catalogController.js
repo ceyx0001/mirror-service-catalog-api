@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.filteredItems = exports.shopsInRange = exports.threadsInRange = exports.allThreads = exports.catalogUpdate = void 0;
-const shopController_1 = __importDefault(require("./shopController"));
+const shopController_1 = require("./shopController");
 const threadsController_1 = require("./threadsController");
 const db = __importStar(require("../db/queries"));
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
@@ -44,10 +44,9 @@ exports.catalogUpdate = (0, express_async_handler_1.default)((req, res, next) =>
     try {
         const startPage = parseInt(req.query.startPage, 10) || 1;
         const endPage = parseInt(req.query.endPage, 10) || 50;
-        const threadReq = { query: { startPage: startPage, endPage: endPage } };
-        const serviceThreads = yield (0, threadsController_1.threads)(threadReq, next);
+        const serviceThreads = yield (0, threadsController_1.getThreadsData)(startPage, endPage);
         const requests = serviceThreads.map((thread) => __awaiter(void 0, void 0, void 0, function* () {
-            const shopData = yield (0, shopController_1.default)(thread.index);
+            const shopData = yield (0, shopController_1.getShopData)(thread.index);
             return Object.assign(Object.assign({}, shopData), { views: thread.views, title: thread.title });
         }));
         const shops = yield Promise.all(requests);

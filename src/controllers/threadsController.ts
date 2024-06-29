@@ -1,72 +1,88 @@
 import axios from "axios";
-import cheerio from "cheerio";
-import { Request, NextFunction } from "express";
+import { load } from "cheerio";
+import { Request, Response, NextFunction } from "express";
+import asyncHandler from "express-async-handler";
 
-export const getThreadsData = async (req: Request, next: NextFunction) => {
-  req.startPage = parseInt(req.query.startPage, 10) || 1;
-  req.endPage = parseInt(req.query.endPage, 10) || 50;
-  let threads = [];
-  if (req.startPage > req.endPage) {
-    const err: any = new Error(
-      "Page number to start indexing threads is greater than the last page."
-    );
-    err.status(400);
-    next(err);
-  }
+type Thread = {
+  profileName: string;
+  index: number;
+  views: number;
+  title: string;
+};
 
-  const promises = Array.from(
-    { length: req.endPage - req.startPage + 1 },
-    async (_, i) => {
-      const url = `https://www.pathofexile.com/forum/view-forum/standard-trading-shops/page/${
-        i + req.startPage
-      }`;
-      const response = await axios.get(url, {
-        headers: {
-          "User-Agent": `Mirror-Catalog/1.0 (${process.env.DEV_EMAIL}) Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3`,
-        },
-      });
+export const getThreadsData = async (
+  startPage: number = 1,
+  endPage: number = 50
+) => {
+  const threads = new Map<string, Thread>();
+  const urlSelling = `https://www.pathofexile.com/forum/view-forum/standard-trading-selling`;
+  const urlShops = `https://www.pathofexile.com/forum/view-forum/standard-trading-shops`;
+  const urls = [urlSelling, urlShops];
 
-      const document = cheerio.load(response.data);
-      document("tr .title a").each((i, elem) => {
-        try {
-          const element = document(elem);
-          const shopTitle = element.text().toLowerCase().trim();
-          if (
-            shopTitle.includes("mirror") &&
-            (shopTitle.includes("service") || shopTitle.includes("shop"))
-          ) {
-            const thread = {
-              index: parseInt(document(elem).attr("href").replace(/\D/g, "")),
-              views: parseInt(
-                document(elem)
-                  .closest("td.thread")
-                  .next()
-                  .find("div.post-stat")
+  const promises = urls.flatMap((url) =>
+    Array.from({ length: endPage - startPage + 1 }, async (_, i) => {
+      const pageUrl = `${url}/page/${i + startPage}`;
+      try {
+        const response = await axios.get(pageUrl, {
+          headers: {
+            "User-Agent": `Mirror-Catalog/1.0 (${process.env.DEV_EMAIL}) Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3`,
+          },
+        });
+        const document = load(response.data);
+        document("td.thread").each((i, elem) => {
+          try {
+            const threadElem = document(elem);
+            const anchor = threadElem
+              .children(".thread_title")
+              .children(".title")
+              .children("a");
+            const shopTitle = anchor.text().trim();
+            if (
+              shopTitle.toLowerCase().includes("mirror") &&
+              (shopTitle.toLowerCase().includes("service") ||
+                shopTitle.includes("shop"))
+            ) {
+              const thread: Thread = {
+                profileName: threadElem
+                  .children(".postBy")
+                  .children(".post_by_account")
+                  .children("a")
                   .text()
-                  .replace(/\D/g, "")
-              ),
-              title: shopTitle,
-            };
-            threads.push(thread);
+                  .trim(),
+                index: parseInt(anchor.attr("href").replace(/\D/g, "")),
+                views: parseInt(
+                  threadElem
+                    .siblings(".views")
+                    .children(".post-stat")
+                    .children("span")
+                    .text()
+                ),
+                title: shopTitle,
+              };
+              threads.set(thread.profileName, thread);
+            }
+          } catch (error) {
+            console.log(error);
           }
-        } catch (error) {
-          console.log(error);
-        }
-      });
-    }
+        });
+      } catch (error) {
+        console.log(error);
+      }
+    })
   );
-
   await Promise.all(promises);
 
-  if (threads.length === 0) {
-    const err: any = new Error("No mirror threads found.");
-    err.status(400);
-    next(err);
-  }
-  threads.sort();
-  return threads;
+  return Array.from(threads.values());
 };
 
-export const threads = async (req: Request, next: NextFunction) => {
-  return await getThreadsData(req, next);
-};
+export const getThreads = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const data = await getThreadsData(req.query?.startPage, req.query?.endPage);
+    if (data.length === 0) {
+      const err: any = new Error("No mirror threads found.");
+      err.status(400);
+      next(err);
+    }
+    return res.json(data);
+  }
+);

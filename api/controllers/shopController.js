@@ -12,6 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getShops = exports.getShopData = void 0;
 const axios_1 = __importDefault(require("axios"));
 const cheerio_1 = require("cheerio");
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
@@ -37,19 +38,26 @@ const getShopData = (index) => __awaiter(void 0, void 0, void 0, function* () {
         const contentString = threadDocument(".content-container").first().text();
         let characterName = null;
         let fees = [];
-        let feeindex = 0;
         if (contentString) {
-            let ign = contentString.match(/IGN:\s(\S*)/i);
+            let ign = contentString.match(/IGN:\s(\S*)/);
             if (ign) {
                 characterName = ign[1];
             }
-            let at = contentString.match(/@(\S*)/i);
+            let at = contentString.match(/@(\S*)/);
             if (at) {
                 characterName = at[1];
             }
-            const feesString = contentString.match(/Fee: (\d+)/gi);
+            const feesString = contentString.match(/Fee: (\S+)/g);
             if (feesString) {
-                feesString.forEach((feeString) => fees.push(parseInt(feeString.split(":")[1].trim())));
+                feesString.forEach((feeString) => {
+                    const feeInt = parseInt(feeString.split(":")[1].trim());
+                    if (Number.isNaN(feeInt)) {
+                        fees.push(null);
+                    }
+                    else {
+                        fees.push(parseInt(feeString.split(":")[1].trim()));
+                    }
+                });
             }
         }
         //const apiUrl = `http://www.pathofexile.com/character-window/get-characters?accountName=${profileName}`;
@@ -69,23 +77,23 @@ const getShopData = (index) => __awaiter(void 0, void 0, void 0, function* () {
                 if (item[1].name !== "" &&
                     !("duplicated" in item[1]) &&
                     item[1].rarity !== "Unique" &&
-                    !item[1].baseType.includes(" Jewel") &&
                     !item[1].baseType.includes("Map")) {
                     try {
                         let itemQuality;
-                        if (item[1].properties) {
-                            const qualityArray = item[1].properties.find((property) => /^Quality.*/.test(property.name));
-                            if (qualityArray) {
-                                itemQuality = qualityArray.values[0][0].replace(/\D/g, "");
-                            }
+                        if (item[1].baseType.includes(" Jewel")) {
                         }
-                        let fee = null;
-                        if (feeindex < fees.length) {
-                            fee = fees[feeindex];
+                        else {
+                            if (item[1].properties &&
+                                !item[1].baseType.includes(" Jewel")) {
+                                const qualityArray = item[1].properties.find((property) => /^Quality.*/.test(property.name));
+                                if (qualityArray) {
+                                    itemQuality = qualityArray.values[0][0].replace(/\D/g, "");
+                                }
+                            }
                         }
                         return {
                             id: item[1].id,
-                            fee: fee,
+                            fee: fees.shift(),
                             icon: item[1].icon,
                             name: item[1].name,
                             baseType: item[1].baseType,
@@ -115,17 +123,11 @@ const getShopData = (index) => __awaiter(void 0, void 0, void 0, function* () {
         };
     }
     catch (error) {
-        console.log(error);
+        console.error(error);
     }
 });
-const shop = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    if (res) {
-        const data = yield getShopData(req.params.threadIndex);
-        return res.json(data);
-    }
-    else {
-        const data = yield getShopData(req);
-        return data;
-    }
+exports.getShopData = getShopData;
+exports.getShops = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const data = yield (0, exports.getShopData)(req.params.threadIndex);
+    return res.json(data);
 }));
-exports.default = shop;

@@ -28,15 +28,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const catalog = __importStar(require("../controllers/catalogController"));
-const shopController_1 = __importDefault(require("../controllers/shopController"));
+const threadsController_1 = require("../controllers/threadsController");
+const shopController_1 = require("../controllers/shopController");
 const router = express_1.default.Router();
 router.get("/catalog-update", catalog.catalogUpdate);
 router.get("/threads", catalog.allThreads);
 router.get("/threads/range", catalog.threadsInRange);
 router.get("/shops/range", catalog.shopsInRange);
-router.get("/shop/:threadIndex", shopController_1.default);
+router.get("/shop/:threadIndex", shopController_1.getShops);
 router.get("/items/filter", catalog.filteredItems);
 router.get("/", (req, res) => {
     res.redirect("/shops/range");
 });
+router.get("/forumthreads", threadsController_1.getThreads);
 exports.default = router;

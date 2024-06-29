@@ -51,7 +51,9 @@ function getItems(filters) {
             ];
             let filteredTable;
             for (let filterObj of filtersArray) {
-                filteredTable = yield filterObj.strategy.apply(filterObj.filter, filteredTable);
+                if (filterObj.filter && filterObj.filter.length > 0) {
+                    filteredTable = yield filterObj.strategy.apply(filterObj.filter, filteredTable);
+                }
             }
             if (filteredTable && filteredTable.length > 0) {
                 const itemIdSet = new Set();

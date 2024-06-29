@@ -1,5 +1,5 @@
-import shop from "./shopController";
-import { threads } from "./threadsController";
+import { getShopData } from "./shopController";
+import { getThreadsData } from "./threadsController";
 import * as db from "../db/queries";
 import asyncHandler from "express-async-handler";
 import { Request, Response, NextFunction } from "express";
@@ -9,11 +9,9 @@ export const catalogUpdate = asyncHandler(
     try {
       const startPage = parseInt(req.query.startPage, 10) || 1;
       const endPage = parseInt(req.query.endPage, 10) || 50;
-
-      const threadReq = { query: { startPage: startPage, endPage: endPage } };
-      const serviceThreads = await threads(threadReq, next);
+      const serviceThreads = await getThreadsData(startPage, endPage);
       const requests = serviceThreads.map(async (thread) => {
-        const shopData = await shop(thread.index);
+        const shopData = await getShopData(thread.index);
         return { ...shopData, views: thread.views, title: thread.title };
       });
 

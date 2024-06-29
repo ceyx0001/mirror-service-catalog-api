@@ -50,7 +50,6 @@ const getShopData = async (index) => {
         });
       }
     }
-    console.log(fees);
     //const apiUrl = `http://www.pathofexile.com/character-window/get-characters?accountName=${profileName}`;
     //const characterResponse = (await axios.get(apiUrl, headers)).data;
     /*for (const character of characterResponse) {
@@ -118,7 +117,7 @@ const getShopData = async (index) => {
       items: serviceItems,
     };
   } catch (error) {
-    console.log(error);
+    console.error(error);
   }
 };
 

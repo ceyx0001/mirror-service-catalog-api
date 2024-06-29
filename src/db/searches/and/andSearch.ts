@@ -14,17 +14,17 @@ export async function getItems(filters: Filters) {
 
     let filteredTable;
     for (let filterObj of filtersArray) {
-      filteredTable = await filterObj.strategy.apply(
-        filterObj.filter,
-        filteredTable
-      );
+      if (filterObj.filter && filterObj.filter.length > 0) {
+        filteredTable = await filterObj.strategy.apply(
+          filterObj.filter,
+          filteredTable
+        );
+      }
     }
 
     if (filteredTable && filteredTable.length > 0) {
       const itemIdSet = new Set<string>();
-      filteredTable.map((mod: { itemId: string }) =>
-        itemIdSet.add(mod.itemId)
-      );
+      filteredTable.map((mod: { itemId: string }) => itemIdSet.add(mod.itemId));
       const itemIds: string[] = Array.from(itemIdSet);
       const result = await db.query.items.findMany({
         where: inArray(items.itemId, itemIds),

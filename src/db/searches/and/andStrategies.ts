@@ -1,6 +1,6 @@
 import db from "../../db";
 import { PgTable } from "drizzle-orm/pg-core";
-import { ilike, inArray, or, sql } from "drizzle-orm";
+import { ilike, inArray, like, or, sql } from "drizzle-orm";
 import { catalog, SelectCatalog } from "../../schemas/catalogSchema";
 import { items, SelectItem } from "../../schemas/itemsSchema";
 import { mods } from "../../schemas/modsSchema";
@@ -21,8 +21,8 @@ async function applyFilters(
         ilike(parentTable[column], `%${filters.pop()}%`)
       )
     );
-    let sq = db.$with("sq").as(db.select().from(parentTable).where(condition));
 
+    let sq = db.$with("sq").as(db.select().from(parentTable).where(condition));
     for (let i = 0; i < filters.length; i++) {
       sq = db.$with("sq").as(
         db

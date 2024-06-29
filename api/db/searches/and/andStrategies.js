@@ -51,8 +51,11 @@ exports.andTitleFilter = {
 };
 exports.andBaseFilter = {
     apply: (filter, table) => __awaiter(void 0, void 0, void 0, function* () {
+        if (table && table.length === 0) {
+            return [];
+        }
         let filteredBase;
-        if (table && table.length > 0) {
+        if (table) {
             const threadIndexes = table.map((shop) => shop.threadIndex);
             filteredBase = yield db_1.default
                 .select()
@@ -75,6 +78,9 @@ exports.andBaseFilter = {
 };
 exports.andModFilter = {
     apply: (filter, table) => __awaiter(void 0, void 0, void 0, function* () {
+        if (table && table.length === 0) {
+            return [];
+        }
         let filteredMods;
         if (table && table.length > 0) {
             const itemIds = table.map((item) => item.itemId);

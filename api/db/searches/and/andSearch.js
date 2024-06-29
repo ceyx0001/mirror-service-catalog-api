@@ -51,10 +51,9 @@ function getItems(filters) {
             ];
             let filteredTable;
             for (let filterObj of filtersArray) {
-                if (filterObj.filter && filterObj.filter.length > 0) {
-                    filteredTable = yield filterObj.strategy.apply(filterObj.filter, filteredTable);
-                }
+                filteredTable = yield filterObj.strategy.apply(filterObj.filter, filteredTable);
             }
+            // need to not use entire table if the previous filter didnt do anything -> test searching for a title only that doesnt exist
             if (filteredTable && filteredTable.length > 0) {
                 const itemIdSet = new Set();
                 filteredTable.map((mod) => itemIdSet.add(mod.itemId));

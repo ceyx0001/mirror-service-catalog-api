@@ -3,7 +3,7 @@ import { load } from "cheerio";
 import { Request, Response, NextFunction } from "express";
 import asyncHandler from "express-async-handler";
 
-type Thread = {
+export type Thread = {
   profileName: string;
   index: number;
   views: number;

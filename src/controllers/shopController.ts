@@ -3,7 +3,7 @@ import { load } from "cheerio";
 import asyncHandler from "express-async-handler";
 import { Request, Response } from "express";
 
-export const getShopData = async (index) => {
+export const getShopData = async (index: number) => {
   const headers = {
     headers: {
       "User-Agent": `Mirror-Catalog/1.0.0 (contact:/${process.env.DEV_EMAIL}) StrictMode`,
@@ -112,7 +112,7 @@ export const getShopData = async (index) => {
     return {
       profileName: profileName,
       characterName: characterName,
-      threadIndex: parseInt(index),
+      threadIndex: index,
       items: serviceItems,
     };
   } catch (error) {

@@ -1,15 +1,23 @@
 import { getShopData } from "./shopController";
-import { getThreadsData } from "./threadsController";
+import { getThreadsData, Thread } from "./threadsController";
 import * as db from "../db/queries";
 import asyncHandler from "express-async-handler";
 import { Request, Response, NextFunction } from "express";
 
 export const catalogUpdate = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
+    const tft: Thread = {
+      profileName: "JeNebu",
+      index: 2516760,
+      views: 0,
+      title:
+        "🔥 The Forbidden Trove's Mirror Shop 🔥 Our Site ForbiddenTrove.com - 한국어 번역이 추가되었습니다 + 패스 오브 빌딩 링크 🔥",
+    };
     try {
       const startPage = parseInt(req.query.startPage, 10) || 1;
       const endPage = parseInt(req.query.endPage, 10) || 50;
       const serviceThreads = await getThreadsData(startPage, endPage);
+      serviceThreads.push(tft);
       const requests = serviceThreads.map(async (thread) => {
         const shopData = await getShopData(thread.index);
         return { ...shopData, views: thread.views, title: thread.title };

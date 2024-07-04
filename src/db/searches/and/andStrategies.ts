@@ -16,7 +16,7 @@ async function applyFilters(
   columns: string[]
 ): Promise<[] | Error> {
   try {
-    const pop = filters.pop();
+    const pop = filters.pop(); // cannot use pop in SQL string
     let condition = or(
       ...columns.map((column) => ilike(parentTable[column], `%${pop}%`))
     );

@@ -16,10 +16,9 @@ async function applyFilters(
   columns: string[]
 ): Promise<[] | Error> {
   try {
+    const pop = filters.pop();
     let condition = or(
-      ...columns.map((column) =>
-        ilike(parentTable[column], `%${filters.pop()}%`)
-      )
+      ...columns.map((column) => ilike(parentTable[column], `%${pop}%`))
     );
 
     let sq = db.$with("sq").as(db.select().from(parentTable).where(condition));

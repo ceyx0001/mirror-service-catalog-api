@@ -1,6 +1,6 @@
 import db from "../../db";
 import { PgTable } from "drizzle-orm/pg-core";
-import { ilike, inArray, like, or, sql } from "drizzle-orm";
+import { ilike, inArray, or } from "drizzle-orm";
 import { catalog, SelectCatalog } from "../../schemas/catalogSchema";
 import { items, SelectItem } from "../../schemas/itemsSchema";
 import { mods } from "../../schemas/modsSchema";

@@ -21,7 +21,8 @@ const modsSchema_1 = require("../../schemas/modsSchema");
 function applyFilters(filters, parentTable, key, columns) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            let condition = (0, drizzle_orm_1.or)(...columns.map((column) => (0, drizzle_orm_1.ilike)(parentTable[column], `%${filters.pop()}%`)));
+            const pop = filters.pop(); // cannot use pop in SQL string
+            let condition = (0, drizzle_orm_1.or)(...columns.map((column) => (0, drizzle_orm_1.ilike)(parentTable[column], `%${pop}%`)));
             let sq = db_1.default.$with("sq").as(db_1.default.select().from(parentTable).where(condition));
             for (let i = 0; i < filters.length; i++) {
                 sq = db_1.default.$with("sq").as(db_1.default

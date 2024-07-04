@@ -118,7 +118,7 @@ const getShopData = (index) => __awaiter(void 0, void 0, void 0, function* () {
         return {
             profileName: profileName,
             characterName: characterName,
-            threadIndex: parseInt(index),
+            threadIndex: index,
             items: serviceItems,
         };
     }

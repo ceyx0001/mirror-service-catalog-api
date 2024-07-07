@@ -40,7 +40,7 @@ const getThreadsData = (...args_1) => __awaiter(void 0, [...args_1], void 0, fun
                     const shopTitle = anchor.text().trim();
                     if (shopTitle.toLowerCase().includes("mirror") &&
                         (shopTitle.toLowerCase().includes("service") ||
-                            shopTitle.includes("shop"))) {
+                            shopTitle.toLowerCase().includes("shop"))) {
                         const thread = {
                             profileName: threadElem
                                 .children(".postBy")

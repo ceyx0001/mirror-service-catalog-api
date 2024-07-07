@@ -93,7 +93,7 @@ const getShopData = (index) => __awaiter(void 0, void 0, void 0, function* () {
                         }
                         return {
                             id: item[1].id,
-                            fee: fees.shift(),
+                            fee: fees.shift() || null,
                             icon: item[1].icon,
                             name: item[1].name,
                             baseType: item[1].baseType,

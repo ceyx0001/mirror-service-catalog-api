@@ -3,7 +3,14 @@ import { load } from "cheerio";
 import asyncHandler from "express-async-handler";
 import { Request, Response } from "express";
 
-export const getShopData = async (index: number) => {
+export type ShopType = {
+  profileName: string;
+  characterName: string;
+  threadIndex: number;
+  items: any[];
+};
+
+export const getShopData = async (index: number): Promise<ShopType> => {
   const headers = {
     headers: {
       "User-Agent": `Mirror-Catalog/1.0.0 (contact:/${process.env.DEV_EMAIL}) StrictMode`,
@@ -88,7 +95,7 @@ export const getShopData = async (index: number) => {
               }
               return {
                 id: item[1].id,
-                fee: fees.shift(),
+                fee: fees.shift() || null,
                 icon: item[1].icon,
                 name: item[1].name,
                 baseType: item[1].baseType,
@@ -121,6 +128,6 @@ export const getShopData = async (index: number) => {
 };
 
 export const getShops = asyncHandler(async (req: Request, res: Response) => {
-    const data = await getShopData(req.params.threadIndex);
-    return res.json(data);
+  const data = await getShopData(req.params.threadIndex);
+  return res.json(data);
 });

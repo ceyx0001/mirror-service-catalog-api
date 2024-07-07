@@ -66,31 +66,38 @@ export async function updateCatalog(shops) {
   }
 
   try {
-    const shopsToInsert = shops.map((shop) => {
-      shop.items.forEach((item) => {
-        if (!itemsToInsert.has(item.id)) {
-          const dbItem: SelectItem = {
-            fee: item.fee,
-            name: item.name,
-            baseType: item.baseType,
-            icon: item.icon,
-            quality: item.quality,
-            itemId: item.id,
-            shopId: shop.threadIndex,
-          };
-          itemsToInsert.set(item.id, dbItem);
-          aggregateMods(item);
+    const shopsToInsert = [];
+    shops.forEach((shop) => {
+      if (shop) {
+        shop.items.forEach((item) => {
+          if (!itemsToInsert.has(item.id)) {
+            const dbItem: SelectItem = {
+              fee: item.fee,
+              name: item.name,
+              baseType: item.baseType,
+              icon: item.icon,
+              quality: item.quality,
+              itemId: item.id,
+              shopId: shop.threadIndex,
+            };
+            itemsToInsert.set(item.id, dbItem);
+            aggregateMods(item);
+          }
+        });
+
+        if (shop.items.length > 0) {
+          shopsToInsert.push(shop);
         }
-      });
-      return shop;
+      }
     });
+
     const shopsPromise = db
       .insert(catalog)
       .values(shopsToInsert)
       .onConflictDoUpdate({
         target: catalog.profileName,
         set: buildConflictUpdateSet(catalog),
-      });
+      }); // item already exists but shop is still added
 
     const uniqueItemsToInsert = Array.from(itemsToInsert.values());
     const itemsPromise = db

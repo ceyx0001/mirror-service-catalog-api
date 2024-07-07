@@ -38,7 +38,6 @@ export const catalogUpdate = asyncHandler(
         err.status(400);
         next(err);
       }
-
       await db.updateCatalog(results);
       res.json("complete");
     } catch (error) {

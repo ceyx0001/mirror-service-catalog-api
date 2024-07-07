@@ -40,7 +40,7 @@ export const getThreadsData = async (
             if (
               shopTitle.toLowerCase().includes("mirror") &&
               (shopTitle.toLowerCase().includes("service") ||
-                shopTitle.includes("shop"))
+                shopTitle.toLowerCase().includes("shop"))
             ) {
               const thread: Thread = {
                 profileName: threadElem

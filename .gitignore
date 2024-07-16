@@ -2,6 +2,7 @@
 .env
 node_modules
 supabase
+drizzle
 
 # Logs
 logs

@@ -1,5 +1,5 @@
-import { pgTable, text, integer, primaryKey } from "drizzle-orm/pg-core";
-import { InferSelectModel, relations } from "drizzle-orm";
+import { pgTable, text, integer, primaryKey, index } from "drizzle-orm/pg-core";
+import { InferSelectModel, relations, sql } from "drizzle-orm";
 import { items } from "./itemsSchema";
 
 export const mods = pgTable(
@@ -12,6 +12,9 @@ export const mods = pgTable(
   },
   (table) => ({
     pk: primaryKey({ columns: [table.mod, table.type, table.itemId] }),
+    modSearchIndex: index("modSearchIndex")
+      .on(table.mod)
+      .using(sql`gin(to_tsvector('english', ${table.mod}))`),
   })
 );
 

@@ -1,6 +1,6 @@
 import db from "../../db";
 import { PgTable } from "drizzle-orm/pg-core";
-import { ilike, inArray, or } from "drizzle-orm";
+import { ilike, inArray, or, sql } from "drizzle-orm";
 import { catalog, SelectCatalog } from "../../schemas/catalogSchema";
 import { items, SelectItem } from "../../schemas/itemsSchema";
 import { mods } from "../../schemas/modsSchema";
@@ -16,12 +16,22 @@ async function applyFilters(
   columns: string[]
 ): Promise<[] | Error> {
   try {
-    const pop = filters.pop(); // cannot use pop in SQL string
-    let condition = or(
-      ...columns.map((column) => ilike(parentTable[column], `%${pop}%`))
-    );
+    function fullTextSearchQuery(searchTerm: string) {
+      const columnConcatenation = columns
+        .map((column) => sql`${parentTable[column]}`)
+        .reduce((acc, col) => sql`${acc} || ' ' || ${col}`);
 
-    let sq = db.$with("sq").as(db.select().from(parentTable).where(condition));
+      return sql`to_tsvector('english', ${columnConcatenation}) @@ to_tsquery('english', ${searchTerm})`;
+    }
+
+    let sq = db
+      .$with("sq")
+      .as(
+        db
+          .select()
+          .from(parentTable)
+          .where(fullTextSearchQuery(filters.pop()))
+      );
     for (let i = 0; i < filters.length; i++) {
       sq = db.$with("sq").as(
         db
@@ -34,13 +44,7 @@ async function applyFilters(
               db
                 .select({ [key]: parentTable[key] })
                 .from(parentTable)
-                .where(
-                  or(
-                    ...columns.map((column) =>
-                      ilike(parentTable[column], `%${filters[i]}%`)
-                    )
-                  )
-                )
+                .where(fullTextSearchQuery(filters[i]))
             )
           )
       );

@@ -11,6 +11,9 @@ exports.mods = (0, pg_core_1.pgTable)("mods", {
     itemId: (0, pg_core_1.text)("itemId").references(() => itemsSchema_1.items.itemId),
 }, (table) => ({
     pk: (0, pg_core_1.primaryKey)({ columns: [table.mod, table.type, table.itemId] }),
+    modSearchIndex: (0, pg_core_1.index)("modSearchIndex")
+        .on(table.mod)
+        .using((0, drizzle_orm_1.sql) `gin(to_tsvector('english', ${table.mod}))`),
 }));
 exports.modsRelations = (0, drizzle_orm_1.relations)(exports.mods, ({ one }) => ({
     item: one(itemsSchema_1.items, {

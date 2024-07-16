@@ -21,9 +21,18 @@ const modsSchema_1 = require("../../schemas/modsSchema");
 function applyFilters(filters, parentTable, key, columns) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const pop = filters.pop(); // cannot use pop in SQL string
-            let condition = (0, drizzle_orm_1.or)(...columns.map((column) => (0, drizzle_orm_1.ilike)(parentTable[column], `%${pop}%`)));
-            let sq = db_1.default.$with("sq").as(db_1.default.select().from(parentTable).where(condition));
+            function fullTextSearchQuery(searchTerm) {
+                const columnConcatenation = columns
+                    .map((column) => (0, drizzle_orm_1.sql) `${parentTable[column]}`)
+                    .reduce((acc, col) => (0, drizzle_orm_1.sql) `${acc} || ' ' || ${col}`);
+                return (0, drizzle_orm_1.sql) `to_tsvector('english', ${columnConcatenation}) @@ to_tsquery('english', ${searchTerm})`;
+            }
+            let sq = db_1.default
+                .$with("sq")
+                .as(db_1.default
+                .select()
+                .from(parentTable)
+                .where(fullTextSearchQuery(filters.pop())));
             for (let i = 0; i < filters.length; i++) {
                 sq = db_1.default.$with("sq").as(db_1.default
                     .with(sq)
@@ -32,7 +41,7 @@ function applyFilters(filters, parentTable, key, columns) {
                     .where((0, drizzle_orm_1.inArray)(sq[key], db_1.default
                     .select({ [key]: parentTable[key] })
                     .from(parentTable)
-                    .where((0, drizzle_orm_1.or)(...columns.map((column) => (0, drizzle_orm_1.ilike)(parentTable[column], `%${filters[i]}%`)))))));
+                    .where(fullTextSearchQuery(filters[i])))));
             }
             const prepared = db_1.default.with(sq).select().from(sq).prepare();
             return yield prepared.execute();

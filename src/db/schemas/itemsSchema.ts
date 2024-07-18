@@ -6,7 +6,7 @@ import { mods } from "./modsSchema";
 export const items = pgTable(
   "items",
   {
-    itemId: text("itemId").primaryKey().notNull(),
+    itemId: text("itemId").primaryKey(),
     fee: integer("fee"),
     icon: text("icon"),
     name: text("name"),

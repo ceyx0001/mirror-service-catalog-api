@@ -69,8 +69,10 @@ export async function updateCatalog(shops) {
     const shopsToInsert = [];
     shops.forEach((shop) => {
       if (shop) {
+        let hasItems = false;
         shop.items.forEach((item) => {
           if (!itemsToInsert.has(item.id)) {
+            hasItems = true;
             const dbItem: SelectItem = {
               fee: item.fee,
               name: item.name,
@@ -85,7 +87,7 @@ export async function updateCatalog(shops) {
           }
         });
 
-        if (shop.items.length > 0) {
+        if (shop.items.length > 0 && hasItems) {
           shopsToInsert.push(shop);
         }
       }

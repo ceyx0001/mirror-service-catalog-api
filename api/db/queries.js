@@ -85,8 +85,10 @@ function updateCatalog(shops) {
             const shopsToInsert = [];
             shops.forEach((shop) => {
                 if (shop) {
+                    let hasItems = false;
                     shop.items.forEach((item) => {
                         if (!itemsToInsert.has(item.id)) {
+                            hasItems = true;
                             const dbItem = {
                                 fee: item.fee,
                                 name: item.name,
@@ -100,7 +102,7 @@ function updateCatalog(shops) {
                             aggregateMods(item);
                         }
                     });
-                    if (shop.items.length > 0) {
+                    if (shop.items.length > 0 && hasItems) {
                         shopsToInsert.push(shop);
                     }
                 }

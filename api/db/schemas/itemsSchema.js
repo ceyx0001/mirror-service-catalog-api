@@ -6,7 +6,7 @@ const drizzle_orm_1 = require("drizzle-orm");
 const catalogSchema_1 = require("./catalogSchema");
 const modsSchema_1 = require("./modsSchema");
 exports.items = (0, pg_core_1.pgTable)("items", {
-    itemId: (0, pg_core_1.text)("itemId").primaryKey().notNull(),
+    itemId: (0, pg_core_1.text)("itemId").primaryKey(),
     fee: (0, pg_core_1.integer)("fee"),
     icon: (0, pg_core_1.text)("icon"),
     name: (0, pg_core_1.text)("name"),

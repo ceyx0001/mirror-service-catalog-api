@@ -16,21 +16,18 @@ async function applyFilters(
   columns: string[]
 ): Promise<[] | Error> {
   try {
-    function fullTextSearchQuery(searchTerm: string) {
+    function fullTextSearchQuery(searchTerm: string) { // its using stemmign and tokenization
       const columnConcatenation = columns
         .map((column) => sql`${parentTable[column]}`)
         .reduce((acc, col) => sql`${acc} || ' ' || ${col}`);
 
-      return sql`to_tsvector('english', ${columnConcatenation}) @@ to_tsquery('english', ${searchTerm})`;
+      return sql`to_tsvector('english', ${columnConcatenation}) @@ phraseto_tsquery('english', ${searchTerm})`;
     }
 
     let sq = db
       .$with("sq")
       .as(
-        db
-          .select()
-          .from(parentTable)
-          .where(fullTextSearchQuery(filters.pop()))
+        db.select().from(parentTable).where(fullTextSearchQuery(filters.pop()))
       );
     for (let i = 0; i < filters.length; i++) {
       sq = db.$with("sq").as(

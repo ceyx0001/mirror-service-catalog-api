@@ -2,7 +2,7 @@ import db from "./db";
 import { catalog } from "./schemas/catalogSchema";
 import { SelectItem, items } from "./schemas/itemsSchema";
 import { SelectMod, mods } from "./schemas/modsSchema";
-import { desc, sql, inArray } from "drizzle-orm";
+import { desc, sql, inArray, gt, or, and, eq, lt, asc } from "drizzle-orm";
 import { filterItems, groupMods, Filters } from "./searches/search";
 
 export async function updateCatalog(shops) {
@@ -142,10 +142,14 @@ export async function getAllThreads() {
   return await db.select().from(catalog);
 }
 
-export async function getShopsInRange(offset, limit) {
+export async function getShopsInRange(
+  pageSize = 10,
+  cursor?: {
+    threadIndex: number;
+  }
+) {
   try {
     const result = await db.query.catalog.findMany({
-      columns: { views: false },
       with: {
         items: {
           columns: { shopId: false },
@@ -154,8 +158,9 @@ export async function getShopsInRange(offset, limit) {
           },
         },
       },
-      offset: offset,
-      limit: limit,
+      where: cursor ? gt(catalog.threadIndex, cursor.threadIndex) : undefined,
+      limit: pageSize,
+      orderBy: asc(catalog.threadIndex),
     });
 
     for (const shop of result) {

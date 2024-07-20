@@ -14,6 +14,8 @@ exports.catalog = (0, pg_core_1.pgTable)("catalog", {
     titleSearchIndex: (0, pg_core_1.index)("titleSearchIndex")
         .on(table.title)
         .using((0, drizzle_orm_1.sql) `gin(to_tsvector('english', ${table.title}))`),
+    viewsIndex: (0, pg_core_1.index)("viewsIndex").on(table.views).desc(),
+    threadDescIndex: (0, pg_core_1.index)("threadDescIndex").on(table.threadIndex).asc(),
 }));
 exports.catalogRelations = (0, drizzle_orm_1.relations)(exports.catalog, ({ many }) => ({
     items: many(itemsSchema_1.items),

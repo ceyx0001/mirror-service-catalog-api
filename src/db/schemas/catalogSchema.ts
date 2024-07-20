@@ -15,6 +15,8 @@ export const catalog = pgTable(
     titleSearchIndex: index("titleSearchIndex")
       .on(table.title)
       .using(sql`gin(to_tsvector('english', ${table.title}))`),
+    viewsIndex: index("viewsIndex").on(table.views).desc(),
+    threadDescIndex: index("threadDescIndex").on(table.threadIndex).asc(),
   })
 );
 

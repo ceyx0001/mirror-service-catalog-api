@@ -155,11 +155,10 @@ function getAllThreads() {
         return yield db_1.default.select().from(catalogSchema_1.catalog);
     });
 }
-function getShopsInRange(offset, limit) {
-    return __awaiter(this, void 0, void 0, function* () {
+function getShopsInRange() {
+    return __awaiter(this, arguments, void 0, function* (pageSize = 10, cursor) {
         try {
             const result = yield db_1.default.query.catalog.findMany({
-                columns: { views: false },
                 with: {
                     items: {
                         columns: { shopId: false },
@@ -168,8 +167,9 @@ function getShopsInRange(offset, limit) {
                         },
                     },
                 },
-                offset: offset,
-                limit: limit,
+                where: cursor ? (0, drizzle_orm_1.gt)(catalogSchema_1.catalog.threadIndex, cursor.threadIndex) : undefined,
+                limit: pageSize,
+                orderBy: (0, drizzle_orm_1.asc)(catalogSchema_1.catalog.threadIndex),
             });
             for (const shop of result) {
                 for (const item of shop.items) {

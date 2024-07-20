@@ -60,9 +60,17 @@ export const threadsInRange = asyncHandler(
 
 export const shopsInRange = asyncHandler(
   async (req: Request, res: Response) => {
-    const offset = req.query.offset - 1 || 0;
-    const limit = req.query.limit || 1;
-    res.json(await db.getShopsInRange(offset, limit));
+    const threadIndex = req.query.threadIndex;
+    const limit = req.query.limit || 10;
+    if (!threadIndex) {
+      res.json(await db.getShopsInRange(limit));
+    } else {
+      res.json(
+        await db.getShopsInRange(limit, {
+          threadIndex: threadIndex,
+        })
+      );
+    }
   }
 );
 

@@ -85,9 +85,16 @@ exports.threadsInRange = (0, express_async_handler_1.default)((req, res) => __aw
     res.json(yield db.getThreadsInRange(offset, limit));
 }));
 exports.shopsInRange = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const offset = req.query.offset - 1 || 0;
-    const limit = req.query.limit || 1;
-    res.json(yield db.getShopsInRange(offset, limit));
+    const threadIndex = req.query.threadIndex;
+    const limit = req.query.limit || 10;
+    if (!threadIndex) {
+        res.json(yield db.getShopsInRange(limit));
+    }
+    else {
+        res.json(yield db.getShopsInRange(limit, {
+            threadIndex: threadIndex,
+        }));
+    }
 }));
 exports.filteredItems = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const filters = {

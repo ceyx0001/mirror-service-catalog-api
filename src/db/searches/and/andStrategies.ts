@@ -21,7 +21,7 @@ async function applyFilters(
         .map((column) => sql`${parentTable[column]}`)
         .reduce((acc, col) => sql`${acc} || ' ' || ${col}`);
 
-      return sql`to_tsvector('english', ${columnConcatenation}) @@ phraseto_tsquery('english', ${searchTerm})`;
+      return sql`to_tsvector('simple', ${columnConcatenation}) @@ phraseto_tsquery('simple', ${searchTerm})`;
     }
 
     let sq = db

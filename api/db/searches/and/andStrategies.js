@@ -25,7 +25,7 @@ function applyFilters(filters, parentTable, key, columns) {
                 const columnConcatenation = columns
                     .map((column) => (0, drizzle_orm_1.sql) `${parentTable[column]}`)
                     .reduce((acc, col) => (0, drizzle_orm_1.sql) `${acc} || ' ' || ${col}`);
-                return (0, drizzle_orm_1.sql) `to_tsvector('english', ${columnConcatenation}) @@ phraseto_tsquery('english', ${searchTerm})`;
+                return (0, drizzle_orm_1.sql) `to_tsvector('simple', ${columnConcatenation}) @@ phraseto_tsquery('simple', ${searchTerm})`;
             }
             let sq = db_1.default
                 .$with("sq")

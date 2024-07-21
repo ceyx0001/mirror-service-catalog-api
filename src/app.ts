@@ -41,7 +41,20 @@ app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(express.static(path.join(path.resolve(), "public")));
+app.use(
+  express.static(path.join(path.resolve(), "public"), {
+    setHeaders: function (res, path) {
+      if (
+        path.endsWith(".png") ||
+        path.endsWith(".jpg") ||
+        path.endsWith(".jpeg") ||
+        path.endsWith(".gif")
+      ) {
+        res.set("Cache-Control", "public, max-age=31536000");
+      }
+    },
+  })
+);
 
 app.use("/", indexRouter);
 

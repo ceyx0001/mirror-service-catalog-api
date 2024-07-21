@@ -37,7 +37,16 @@ app.use((0, morgan_1.default)("dev"));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: false }));
 app.use((0, cookie_parser_1.default)());
-app.use(express_1.default.static(path_1.default.join(path_1.default.resolve(), "public")));
+app.use(express_1.default.static(path_1.default.join(path_1.default.resolve(), "public"), {
+    setHeaders: function (res, path) {
+        if (path.endsWith(".png") ||
+            path.endsWith(".jpg") ||
+            path.endsWith(".jpeg") ||
+            path.endsWith(".gif")) {
+            res.set("Cache-Control", "public, max-age=31536000");
+        }
+    },
+}));
 app.use("/", routes_1.default);
 // catch 404 and forward to error handler
 app.use((req, res, next) => {

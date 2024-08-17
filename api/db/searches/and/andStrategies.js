@@ -23,7 +23,7 @@ function applyFilters(filters, parentTable, key, columns) {
         try {
             function fullTextSearchQuery(searchTerm) {
                 const columnConcatenation = columns
-                    .map((column) => (0, drizzle_orm_1.sql) `${parentTable[column]}`)
+                    .map((column) => (0, drizzle_orm_1.sql) `COALESCE(${parentTable[column]}, '')`)
                     .reduce((acc, col) => (0, drizzle_orm_1.sql) `${acc} || ' ' || ${col}`);
                 return (0, drizzle_orm_1.sql) `to_tsvector('simple', ${columnConcatenation}) @@ phraseto_tsquery('simple', ${searchTerm})`;
             }
@@ -42,6 +42,10 @@ function applyFilters(filters, parentTable, key, columns) {
             }
             const prepared = db_1.default.with(sq).select().from(sq).prepare();
             return yield prepared.execute();
+            /*return await db
+              .select()
+              .from(items)
+              .where(sql`${items.baseType} ILIKE '%cluster%'`);*/
         }
         catch (error) {
             console.error(error);

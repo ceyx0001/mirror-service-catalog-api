@@ -16,9 +16,9 @@ async function applyFilters(
   columns: string[]
 ): Promise<[] | Error> {
   try {
-    function fullTextSearchQuery(searchTerm: string) { // its using stemmign and tokenization
+    function fullTextSearchQuery(searchTerm: string) { // its using stemming and tokenization
       const columnConcatenation = columns
-        .map((column) => sql`${parentTable[column]}`)
+        .map((column) => sql`COALESCE(${parentTable[column]}, '')`)
         .reduce((acc, col) => sql`${acc} || ' ' || ${col}`);
 
       return sql`to_tsvector('simple', ${columnConcatenation}) @@ phraseto_tsquery('simple', ${searchTerm})`;
@@ -49,6 +49,11 @@ async function applyFilters(
 
     const prepared = db.with(sq).select().from(sq).prepare();
     return await prepared.execute();
+
+    /*return await db
+      .select()
+      .from(items)
+      .where(sql`${items.baseType} ILIKE '%cluster%'`);*/
   } catch (error) {
     console.error(error);
   }

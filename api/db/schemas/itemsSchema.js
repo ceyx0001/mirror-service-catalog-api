@@ -18,10 +18,10 @@ exports.items = (0, pg_core_1.pgTable)("items", {
 }, (table) => ({
     nameSearchIndex: (0, pg_core_1.index)("nameSearchIndex")
         .on(table.name)
-        .using((0, drizzle_orm_1.sql) `gin(to_tsvector('english', ${table.name}))`),
+        .using((0, drizzle_orm_1.sql) `gin(to_tsvector('simple', ${table.name}))`),
     baseTypeSearchIndex: (0, pg_core_1.index)("baseTypeSearchIndex")
         .on(table.baseType)
-        .using((0, drizzle_orm_1.sql) `gin(to_tsvector('english', ${table.baseType}))`),
+        .using((0, drizzle_orm_1.sql) `gin(to_tsvector('simple', ${table.baseType}))`),
 }));
 exports.itemsRelations = (0, drizzle_orm_1.relations)(exports.items, ({ one, many }) => ({
     catalog: one(catalogSchema_1.catalog, {

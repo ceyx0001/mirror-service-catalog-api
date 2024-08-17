@@ -14,7 +14,7 @@ export const mods = pgTable(
     pk: primaryKey({ columns: [table.mod, table.type, table.itemId] }),
     modSearchIndex: index("modSearchIndex")
       .on(table.mod)
-      .using(sql`gin(to_tsvector('english', ${table.mod}))`),
+      .using(sql`gin(to_tsvector('simple', ${table.mod}))`),
   })
 );
 

@@ -19,10 +19,10 @@ export const items = pgTable(
   (table) => ({
     nameSearchIndex: index("nameSearchIndex")
       .on(table.name)
-      .using(sql`gin(to_tsvector('english', ${table.name}))`),
+      .using(sql`gin(to_tsvector('simple', ${table.name}))`),
     baseTypeSearchIndex: index("baseTypeSearchIndex")
       .on(table.baseType)
-      .using(sql`gin(to_tsvector('english', ${table.baseType}))`),
+      .using(sql`gin(to_tsvector('simple', ${table.baseType}))`),
   })
 );
 

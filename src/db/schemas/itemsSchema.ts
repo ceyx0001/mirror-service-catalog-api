@@ -12,7 +12,7 @@ export const items = pgTable(
     name: text("name"),
     baseType: text("baseType"),
     quality: text("quality"),
-    shopId: integer("shopId")
+    threadIndex: integer("threadIndex")
       .notNull()
       .references(() => catalog.threadIndex, { onUpdate: "cascade" }),
   },
@@ -28,7 +28,7 @@ export const items = pgTable(
 
 export const itemsRelations = relations(items, ({ one, many }) => ({
   catalog: one(catalog, {
-    fields: [items.shopId],
+    fields: [items.threadIndex],
     references: [catalog.threadIndex],
   }),
   mods: many(mods),

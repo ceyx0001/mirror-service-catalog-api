@@ -96,7 +96,7 @@ function updateCatalog(shops) {
                                 icon: item.icon,
                                 quality: item.quality,
                                 itemId: item.id,
-                                shopId: shop.threadIndex,
+                                threadIndex: shop.threadIndex,
                             };
                             itemsToInsert.set(item.id, dbItem);
                             aggregateMods(item);
@@ -132,7 +132,7 @@ function updateCatalog(shops) {
             yield Promise.all([shopsPromise, itemsPromise, modsPromise]);
         }
         catch (error) {
-            console.log(error);
+            console.error(error);
         }
     });
 }
@@ -161,7 +161,7 @@ function getShopsInRange() {
             const result = yield db_1.default.query.catalog.findMany({
                 with: {
                     items: {
-                        columns: { shopId: false },
+                        columns: { threadIndex: false },
                         with: {
                             mods: { columns: { itemId: false } },
                         },
@@ -183,8 +183,8 @@ function getShopsInRange() {
         }
     });
 }
-function getFilteredItems(filters) {
+function getFilteredItems(filters, cursors, limit) {
     return __awaiter(this, void 0, void 0, function* () {
-        return (0, search_1.filterItems)(filters);
+        return yield (0, search_1.filterItems)(filters, cursors, limit);
     });
 }

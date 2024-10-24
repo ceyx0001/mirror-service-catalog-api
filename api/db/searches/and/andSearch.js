@@ -41,34 +41,53 @@ const db_1 = __importDefault(require("../../db"));
 const search_1 = require("../search");
 const drizzle_orm_1 = require("drizzle-orm");
 const andStrategy = __importStar(require("./andStrategies"));
-function getItems(filters) {
+function getItems(filters, cursors, limit) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             let filtersArray = [
-                { filter: filters.titleFilters, strategy: andStrategy.andTitleFilter },
-                { filter: filters.baseFilters, strategy: andStrategy.andBaseFilter },
-                { filter: filters.modFilters, strategy: andStrategy.andModFilter },
+                {
+                    filter: filters.titleFilters,
+                    strategy: andStrategy.andTitleFilter,
+                    cursorKey: cursors.threadIndex,
+                    cursorCol: "threadIndex",
+                },
+                {
+                    filter: filters.baseFilters,
+                    strategy: andStrategy.andBaseFilter,
+                    cursorKey: cursors.threadIndex,
+                    cursorCol: "threadIndex",
+                },
+                {
+                    filter: filters.modFilters,
+                    strategy: andStrategy.andModFilter,
+                    cursorKey: cursors.itemId,
+                    cursorCol: "itemId",
+                },
             ];
             let filteredTable;
             for (let filterObj of filtersArray) {
-                filteredTable = yield filterObj.strategy.apply(filterObj.filter, filteredTable);
+                filteredTable = yield filterObj.strategy.apply(filterObj.filter, filteredTable, filterObj.cursorKey, filterObj.cursorCol, limit);
             }
             // need to not use entire table if the previous filter didnt do anything -> test searching for a title only that doesnt exist
-            if (filteredTable && filteredTable.length > 0) {
+            if (filteredTable &&
+                filteredTable instanceof Array &&
+                filteredTable.length > 0) {
                 const itemIdSet = new Set();
+                const itemIdCursor = filteredTable[filteredTable.length - 1].itemId;
                 filteredTable.map((mod) => itemIdSet.add(mod.itemId));
                 const itemIds = Array.from(itemIdSet);
                 const result = yield db_1.default.query.items.findMany({
                     where: (0, drizzle_orm_1.inArray)(itemsSchema_1.items.itemId, itemIds),
-                    columns: { shopId: false },
+                    columns: { threadIndex: false },
                     with: {
                         mods: { columns: { itemId: false } },
                         catalog: { columns: { views: false } },
                     },
                 });
-                return Array.from((0, search_1.mapItemsToShop)(result));
+                const res = Array.from((0, search_1.mapItemsToShop)(result));
+                return { array: res, cursor: itemIdCursor };
             }
-            return [];
+            return { array: [], cursor: null };
         }
         catch (error) {
             console.error(error);

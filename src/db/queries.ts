@@ -2,7 +2,7 @@ import db from "./db";
 import { catalog } from "./schemas/catalogSchema";
 import { SelectItem, items } from "./schemas/itemsSchema";
 import { SelectMod, mods } from "./schemas/modsSchema";
-import { desc, sql, inArray, gt, or, and, eq, lt, asc } from "drizzle-orm";
+import { desc, sql, inArray, gt, asc } from "drizzle-orm";
 import { filterItems, groupMods, Filters } from "./searches/search";
 
 export async function updateCatalog(shops) {
@@ -80,7 +80,7 @@ export async function updateCatalog(shops) {
               icon: item.icon,
               quality: item.quality,
               itemId: item.id,
-              shopId: shop.threadIndex,
+              threadIndex: shop.threadIndex,
             };
             itemsToInsert.set(item.id, dbItem);
             aggregateMods(item);
@@ -121,7 +121,7 @@ export async function updateCatalog(shops) {
 
     await Promise.all([shopsPromise, itemsPromise, modsPromise]);
   } catch (error) {
-    console.log(error);
+    console.error(error);
   }
 }
 
@@ -152,7 +152,7 @@ export async function getShopsInRange(
     const result = await db.query.catalog.findMany({
       with: {
         items: {
-          columns: { shopId: false },
+          columns: { threadIndex: false },
           with: {
             mods: { columns: { itemId: false } },
           },
@@ -175,6 +175,10 @@ export async function getShopsInRange(
   }
 }
 
-export async function getFilteredItems(filters: Filters) {
-  return filterItems(filters);
+export async function getFilteredItems(
+  filters: Filters,
+  cursors: { threadIndex: number; itemId: string },
+  limit: number
+) {
+  return await filterItems(filters, cursors, limit);
 }

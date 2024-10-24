@@ -40,11 +40,17 @@ export function mapItemsToShop(items) {
   return shopsMap.values();
 }
 
-export async function filterItems(filters: Filters) {
+export async function filterItems(
+  filters: Filters,
+  cursors: { threadIndex: number; itemId: string },
+  limit: number
+): Promise<{
+  array: object[];
+  cursor: string;
+}> {
   try {
-    let table = null;
-    table = andSearch.getItems(filters);
-    return table;
+    let res = await andSearch.getItems(filters, cursors, limit);
+    return res;
   } catch (error) {
     console.error(error);
   }

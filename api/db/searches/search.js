@@ -83,12 +83,11 @@ function mapItemsToShop(items) {
     }
     return shopsMap.values();
 }
-function filterItems(filters) {
+function filterItems(filters, cursors, limit) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            let table = null;
-            table = andSearch.getItems(filters);
-            return table;
+            let res = yield andSearch.getItems(filters, cursors, limit);
+            return res;
         }
         catch (error) {
             console.error(error);

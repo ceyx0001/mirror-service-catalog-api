@@ -18,34 +18,66 @@ const drizzle_orm_1 = require("drizzle-orm");
 const catalogSchema_1 = require("../../schemas/catalogSchema");
 const itemsSchema_1 = require("../../schemas/itemsSchema");
 const modsSchema_1 = require("../../schemas/modsSchema");
-function applyFilters(filters, parentTable, key, columns) {
+function applyFilters(filters, parentTable, keyCol, columns, paginate) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             function fullTextSearchQuery(searchTerm) {
+                // its using stemming and tokenization
                 const columnConcatenation = columns
                     .map((column) => (0, drizzle_orm_1.sql) `COALESCE(${parentTable[column]}, '')`)
                     .reduce((acc, col) => (0, drizzle_orm_1.sql) `${acc} || ' ' || ${col}`);
                 return (0, drizzle_orm_1.sql) `to_tsvector('simple', ${columnConcatenation}) @@ phraseto_tsquery('simple', ${searchTerm})`;
             }
-            let sq = db_1.default
-                .$with("sq")
-                .as(db_1.default.select().from(parentTable).where(fullTextSearchQuery(filters.pop())));
-            for (let i = 0; i < filters.length; i++) {
+            let sq;
+            if (paginate) {
                 sq = db_1.default.$with("sq").as(db_1.default
+                    .select()
+                    .from(parentTable)
+                    .orderBy((0, drizzle_orm_1.desc)(parentTable[paginate.cursorCol]))
+                    .where((0, drizzle_orm_1.and)(paginate.cursorKey
+                    ? (0, drizzle_orm_1.lt)(parentTable[paginate.cursorCol], paginate.cursorKey)
+                    : undefined, fullTextSearchQuery(filters.pop()))));
+                for (let i = 0; i < filters.length; i++) {
+                    sq = db_1.default.$with("sq").as(db_1.default
+                        .with(sq)
+                        .select()
+                        .from(sq)
+                        .orderBy((0, drizzle_orm_1.desc)(sq[paginate.cursorCol]))
+                        .where((0, drizzle_orm_1.and)(paginate.cursorKey
+                        ? (0, drizzle_orm_1.lt)(sq[paginate.cursorCol], paginate.cursorKey)
+                        : undefined, (0, drizzle_orm_1.inArray)(sq[keyCol], db_1.default
+                        .select({ [keyCol]: parentTable[keyCol] })
+                        .from(parentTable)
+                        .where(fullTextSearchQuery(filters[i]))))));
+                }
+                return db_1.default
                     .with(sq)
                     .select()
                     .from(sq)
-                    .where((0, drizzle_orm_1.inArray)(sq[key], db_1.default
-                    .select({ [key]: parentTable[key] })
-                    .from(parentTable)
-                    .where(fullTextSearchQuery(filters[i])))));
+                    .where(paginate.cursorKey
+                    ? (0, drizzle_orm_1.lt)(sq[paginate.cursorCol], paginate.cursorKey)
+                    : undefined)
+                    .limit(paginate.limit)
+                    .prepare()
+                    .execute();
             }
-            const prepared = db_1.default.with(sq).select().from(sq).prepare();
-            return yield prepared.execute();
-            /*return await db
-              .select()
-              .from(items)
-              .where(sql`${items.baseType} ILIKE '%cluster%'`);*/
+            else {
+                sq = db_1.default.$with("sq").as(db_1.default
+                    .select()
+                    .from(parentTable)
+                    .where((0, drizzle_orm_1.and)(fullTextSearchQuery(filters.pop()))));
+                for (let i = 0; i < filters.length; i++) {
+                    sq = db_1.default.$with("sq").as(db_1.default
+                        .with(sq)
+                        .select()
+                        .from(sq)
+                        .where((0, drizzle_orm_1.inArray)(sq[keyCol], db_1.default
+                        .select({ [keyCol]: parentTable[keyCol] })
+                        .from(parentTable)
+                        .where(fullTextSearchQuery(filters[i])))));
+                }
+                return db_1.default.with(sq).select().from(sq).prepare().execute();
+            }
         }
         catch (error) {
             console.error(error);
@@ -53,15 +85,19 @@ function applyFilters(filters, parentTable, key, columns) {
     });
 }
 exports.andTitleFilter = {
-    apply: (filter_1, ...args_1) => __awaiter(void 0, [filter_1, ...args_1], void 0, function* (filter, table = catalogSchema_1.catalog) {
+    apply: (filter_1, ...args_1) => __awaiter(void 0, [filter_1, ...args_1], void 0, function* (filter, table = catalogSchema_1.catalog, cursorKey, cursorCol, limit) {
         if (!filter) {
             return null;
         }
-        return yield applyFilters(filter, table, "threadIndex", ["title"]);
+        return yield applyFilters(filter, table, "threadIndex", ["title"], {
+            limit,
+            cursorKey,
+            cursorCol,
+        });
     }),
 };
 exports.andBaseFilter = {
-    apply: (filter, table) => __awaiter(void 0, void 0, void 0, function* () {
+    apply: (filter, table, cursorKey, cursorCol, limit) => __awaiter(void 0, void 0, void 0, function* () {
         if (table && table.length === 0) {
             return [];
         }
@@ -71,7 +107,7 @@ exports.andBaseFilter = {
             filteredBase = yield db_1.default
                 .select()
                 .from(itemsSchema_1.items)
-                .where((0, drizzle_orm_1.inArray)(itemsSchema_1.items.shopId, threadIndexes))
+                .where((0, drizzle_orm_1.inArray)(itemsSchema_1.items.threadIndex, threadIndexes))
                 .as("filteredBase");
         }
         else {
@@ -80,15 +116,15 @@ exports.andBaseFilter = {
         if (!filter) {
             return yield db_1.default.select().from(filteredBase);
         }
-        return yield applyFilters(filter, filteredBase, "itemId", [
-            "baseType",
-            "name",
-            "quality",
-        ]);
+        return yield applyFilters(filter, filteredBase, "itemId", ["baseType", "name", "quality"], {
+            limit,
+            cursorKey,
+            cursorCol,
+        });
     }),
 };
 exports.andModFilter = {
-    apply: (filter, table) => __awaiter(void 0, void 0, void 0, function* () {
+    apply: (filter, table, cursorKey, cursorCol, limit) => __awaiter(void 0, void 0, void 0, function* () {
         if (table && table.length === 0) {
             return [];
         }
@@ -107,6 +143,10 @@ exports.andModFilter = {
         if (!filter) {
             return yield db_1.default.select().from(filteredMods);
         }
-        return yield applyFilters(filter, filteredMods, "itemId", ["mod"]);
+        return yield applyFilters(filter, filteredMods, "itemId", ["mod"], {
+            limit,
+            cursorKey,
+            cursorCol,
+        });
     }),
 };

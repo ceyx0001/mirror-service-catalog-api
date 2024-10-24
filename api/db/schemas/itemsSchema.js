@@ -12,7 +12,7 @@ exports.items = (0, pg_core_1.pgTable)("items", {
     name: (0, pg_core_1.text)("name"),
     baseType: (0, pg_core_1.text)("baseType"),
     quality: (0, pg_core_1.text)("quality"),
-    shopId: (0, pg_core_1.integer)("shopId")
+    threadIndex: (0, pg_core_1.integer)("threadIndex")
         .notNull()
         .references(() => catalogSchema_1.catalog.threadIndex, { onUpdate: "cascade" }),
 }, (table) => ({
@@ -25,7 +25,7 @@ exports.items = (0, pg_core_1.pgTable)("items", {
 }));
 exports.itemsRelations = (0, drizzle_orm_1.relations)(exports.items, ({ one, many }) => ({
     catalog: one(catalogSchema_1.catalog, {
-        fields: [exports.items.shopId],
+        fields: [exports.items.threadIndex],
         references: [catalogSchema_1.catalog.threadIndex],
     }),
     mods: many(modsSchema_1.mods),

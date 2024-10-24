@@ -14,6 +14,9 @@ exports.mods = (0, pg_core_1.pgTable)("mods", {
     modSearchIndex: (0, pg_core_1.index)("modSearchIndex")
         .on(table.mod)
         .using((0, drizzle_orm_1.sql) `gin(to_tsvector('simple', ${table.mod}))`),
+    modItemIdIndex: (0, pg_core_1.index)("modItemIdIndex")
+        .on(table.mod)
+        .using((0, drizzle_orm_1.sql) `gin(to_tsvector('simple', ${table.mod}))`),
 }));
 exports.modsRelations = (0, drizzle_orm_1.relations)(exports.mods, ({ one }) => ({
     item: one(itemsSchema_1.items, {

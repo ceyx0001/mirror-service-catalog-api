@@ -26,7 +26,7 @@ app.use(
 app.set("trust proxy", 1);
 
 const timeout = 1 * 5 * 1000;
-const window = 1 * 5 * 1000;
+const window = 1 * 1 * 1000;
 app.use(
   rateLimit({
     windowMs: window,

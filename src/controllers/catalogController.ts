@@ -96,6 +96,14 @@ export const filteredItems = asyncHandler(
             : [req.query.base]
           : undefined,
     };
-    res.json(await db.getFilteredItems(filters));
+    const cursors = { threadIndex: null, itemId: null };
+    cursors.threadIndex =
+      req.query.threadIndex !== "" ? req.query.threadIndex : undefined;
+
+    cursors.itemId = req.query.itemId !== "" ? req.query.itemId : undefined;
+
+    const limit =
+      req.query.limit !== undefined ? parseInt(req.query.limit) : undefined;
+    res.json(await db.getFilteredItems(filters, cursors, limit));
   }
 );

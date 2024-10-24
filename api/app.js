@@ -25,7 +25,7 @@ app.use((0, cors_1.default)({
 }));
 app.set("trust proxy", 1);
 const timeout = 1 * 5 * 1000;
-const window = 1 * 5 * 1000;
+const window = 1 * 1 * 1000;
 app.use((0, express_rate_limit_1.rateLimit)({
     windowMs: window,
     skipFailedRequests: true,

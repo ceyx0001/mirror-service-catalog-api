@@ -14,7 +14,8 @@
     "cors": "^2.8.5",
     "debug": "~2.6.9",
     "dotenv": "^16.4.5",
-    "drizzle-orm": "^0.30.10",
+    "drizzle-kit": "^0.26.2",
+    "drizzle-orm": "^0.33.0",
     "express": "^4.19.2",
     "express-async-handler": "^1.2.0",
     "express-rate-limit": "^7.3.1",
@@ -22,11 +23,13 @@
     "http-errors": "~1.6.3",
     "morgan": "~1.9.1",
     "node-schedule": "^2.1.1",
+    "papaparse": "^5.4.1",
+    "pg": "^8.13.1",
+    "pg-copy-streams": "^6.0.6",
     "postgres": "^3.4.4",
     "typescript": "^5.4.5"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.21.4",
     "ts-node": "^10.9.2"
   }
 }

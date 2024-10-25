@@ -1,127 +1,134 @@
-import db from "./db";
+import { db, pool } from "./db";
 import { catalog } from "./schemas/catalogSchema";
-import { SelectItem, items } from "./schemas/itemsSchema";
-import { SelectMod, mods } from "./schemas/modsSchema";
-import { desc, sql, inArray, gt, asc } from "drizzle-orm";
+import { SelectItem } from "./schemas/itemsSchema";
+import { SelectMod } from "./schemas/modsSchema";
+import { asc, desc, gt } from "drizzle-orm";
 import { filterItems, groupMods, Filters } from "./searches/search";
+import Papa from "papaparse";
+import { pipeline } from "stream";
+import { from as copyFrom } from "pg-copy-streams";
+import fs from "fs";
+import path from "path";
 
 export async function updateCatalog(shops) {
-  function buildConflictUpdateSet(table) {
-    const columns = Object.keys(table);
-    return columns.reduce((acc, column) => {
-      acc[column] = sql`excluded.${sql.identifier(column)}`;
-      return acc;
-    }, {});
-  }
-
   const itemsToInsert: Map<string, SelectItem> = new Map();
   const modsToInsert: Map<string, SelectMod> = new Map();
 
-  function setMods(itemId: string, modType: string, mods: string[]) {
-    if (mods) {
-      for (const text of mods) {
-        const key = itemId + modType + text;
-        if (modsToInsert.get(key)) {
-          const oldMod = modsToInsert.get(key);
-          oldMod.dupes += 1;
-          modsToInsert.set(key, oldMod);
-        } else {
-          modsToInsert.set(key, {
-            itemId: itemId,
-            mod: text,
-            type: modType,
-            dupes: null,
-          });
-        }
-      }
-    }
-  }
-
-  function aggregateMods(item) {
-    for (const key in item) {
-      if (item[key]) {
-        switch (key) {
-          case "enchantMods":
-            setMods(item.id, "enchant", item[key]);
-            break;
-          case "implicitMods":
-            setMods(item.id, "implicit", item[key]);
-            break;
-          case "explicitMods":
-            setMods(item.id, "explicit", item[key]);
-            break;
-          case "fracturedMods":
-            setMods(item.id, "fractured", item[key]);
-            break;
-          case "craftedMods":
-            setMods(item.id, "crafted", item[key]);
-            break;
-          case "crucibleMods":
-            setMods(item.id, "crucible", item[key]);
-            break;
-          default:
-        }
-      }
-    }
-  }
-
-  try {
-    const shopsToInsert = [];
-    shops.forEach((shop) => {
-      if (shop) {
-        let hasItems = false;
-        shop.items.forEach((item) => {
-          if (!itemsToInsert.has(item.id)) {
-            hasItems = true;
-            const dbItem: SelectItem = {
-              fee: item.fee,
-              name: item.name,
-              baseType: item.baseType,
-              icon: item.icon,
-              quality: item.quality,
-              itemId: item.id,
-              threadIndex: shop.threadIndex,
-            };
-            itemsToInsert.set(item.id, dbItem);
-            aggregateMods(item);
-          }
+  function setMods(itemId, modType, mods, threadIndex) {
+    for (const text of mods) {
+      const key = itemId + modType + text;
+      const existingMod = modsToInsert.get(key);
+      if (existingMod) {
+        existingMod.dupes += 1;
+      } else {
+        modsToInsert.set(key, {
+          mod: text,
+          type: modType,
+          dupes: 1,
+          itemId,
+          threadIndex,
         });
-
-        if (shop.items.length > 0 && hasItems) {
-          shopsToInsert.push(shop);
-        }
       }
+    }
+  }
+
+  function aggregateMods(item, threadIndex) {
+    const modKeys = [
+      "enchant",
+      "implicit",
+      "explicit",
+      "fractured",
+      "crafted",
+      "crucible",
+    ];
+    modKeys.forEach((key) => {
+      const fullKey = `${key}Mods`; // Add the "Mods" suffix when accessing properties
+      if (item[fullKey]) setMods(item.id, key, item[fullKey], threadIndex);
     });
+  }
 
-    const shopsPromise = db
-      .insert(catalog)
-      .values(shopsToInsert)
-      .onConflictDoUpdate({
-        target: catalog.profileName,
-        set: buildConflictUpdateSet(catalog),
-      }); // item already exists but shop is still added
+  async function copyCSVToTable(client, filePath, tableName) {
+    return new Promise<void>((resolve, reject) => {
+      const stream = client.query(
+        copyFrom(`COPY ${tableName} FROM STDIN WITH DELIMITER ',' CSV HEADER`)
+      );
+      const fileStream = fs.createReadStream(filePath);
 
-    const uniqueItemsToInsert = Array.from(itemsToInsert.values());
-    const itemsPromise = db
-      .insert(items)
-      .values(uniqueItemsToInsert)
-      .onConflictDoUpdate({
-        target: items.itemId,
-        set: buildConflictUpdateSet(items),
+      pipeline(fileStream, stream, (err) => {
+        if (err) {
+          console.error("Import failed:", err);
+          return reject(err);
+        }
+        resolve();
       });
+    });
+  }
 
-    const uniqueModsToInsert = Array.from(modsToInsert.values());
-    const itemIds = uniqueModsToInsert.map((mod) => mod.itemId);
-    await db.delete(mods).where(inArray(mods.itemId, itemIds));
+  const shopsToInsert = [];
+  shops.forEach((shop) => {
+    if (shop) {
+      let hasItems = false;
+      shop.items.forEach((item) => {
+        if (!itemsToInsert.has(item.id)) {
+          hasItems = true;
+          const dbItem: SelectItem = {
+            itemId: item.id,
+            fee: item.fee,
+            icon: item.icon,
+            name: item.name,
+            baseType: item.baseType,
+            quality: item.quality,
+            threadIndex: shop.threadIndex,
+          };
+          itemsToInsert.set(item.id, dbItem);
+          aggregateMods(item, shop.threadIndex);
+        }
+      });
+      if (shop.items.length > 0 && hasItems) {
+        const { items, ...rest } = shop;
+        shopsToInsert.push(rest);
+      }
+    }
+  });
 
-    const modsPromise = db
-      .insert(mods)
-      .values(uniqueModsToInsert)
-      .onConflictDoNothing();
+  const outputDirectory = path.join(__dirname, "csv");
+  fs.writeFileSync(
+    path.join(outputDirectory, "catalog.csv"),
+    Papa.unparse(shopsToInsert)
+  );
+  fs.writeFileSync(
+    path.join(outputDirectory, "items.csv"),
+    Papa.unparse(Array.from(itemsToInsert.values()))
+  );
+  fs.writeFileSync(
+    path.join(outputDirectory, "mods.csv"),
+    Papa.unparse(Array.from(modsToInsert.values()))
+  );
 
-    await Promise.all([shopsPromise, itemsPromise, modsPromise]);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const truncate = `TRUNCATE TABLE catalog CASCADE`;
+    await client.query(truncate);
+
+    await Promise.all([
+      copyCSVToTable(
+        client,
+        path.join(outputDirectory, "catalog.csv"),
+        "catalog"
+      ),
+      copyCSVToTable(client, path.join(outputDirectory, "items.csv"), "items"),
+      copyCSVToTable(client, path.join(outputDirectory, "mods.csv"), "mods"),
+    ]);
+
+    await client.query("COMMIT");
+    console.log("Catalog loaded successfully.");
   } catch (error) {
-    console.error(error);
+    await client.query("ROLLBACK");
+    console.error("Error loading catalog:", error);
+  } finally {
+    client.release();
   }
 }
 
@@ -142,24 +149,22 @@ export async function getAllThreads() {
   return await db.select().from(catalog);
 }
 
-export async function getShopsInRange(
-  pageSize = 10,
-  cursor?: {
-    threadIndex: number;
-  }
-) {
+export async function getShopsInRange(cursor: {
+  threadIndex: number;
+  limit: number;
+}) {
   try {
     const result = await db.query.catalog.findMany({
       with: {
         items: {
           columns: { threadIndex: false },
           with: {
-            mods: { columns: { itemId: false } },
+            mods: { columns: { itemId: false, threadIndex: false } },
           },
         },
       },
       where: cursor ? gt(catalog.threadIndex, cursor.threadIndex) : undefined,
-      limit: pageSize,
+      limit: cursor ? Number(cursor.limit) : undefined,
       orderBy: asc(catalog.threadIndex),
     });
 

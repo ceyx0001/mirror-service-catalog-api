@@ -1,27 +1,49 @@
-import db from "../../db";
-import { PgTable } from "drizzle-orm/pg-core";
-import { and, asc, desc, gt, gte, inArray, lt, SQL, sql } from "drizzle-orm";
+import { db } from "../../db";
+import { PgTable, WithSubqueryWithSelection } from "drizzle-orm/pg-core";
+import {
+  and,
+  asc,
+  desc,
+  gt,
+  inArray,
+  lt,
+  sql,
+  Subquery,
+  WithSubquery,
+} from "drizzle-orm";
 import { catalog, SelectCatalog } from "../../schemas/catalogSchema";
 import { items, SelectItem } from "../../schemas/itemsSchema";
 import { mods } from "../../schemas/modsSchema";
 
-type Strategy = {
+export type Strategy = {
   apply: (
     filter: string[],
     table: any,
-    cursorKey: string | number,
-    cursorCol: string,
-    limit: number
-  ) => Promise<[] | Error>;
+    paginate?: {
+      limit: number;
+      cursors: { cursorKey: string | number; cursorCol: string }[];
+    }
+  ) => Promise<
+    {
+      [x: string]: any;
+    }[]
+  >;
 };
 
 async function applyFilters(
   filters: string[],
-  parentTable: PgTable,
+  parentTable: PgTable | Subquery,
   keyCol: string,
   columns: string[],
-  paginate?: { limit: number; cursorKey: string | number; cursorCol: string }
-): Promise<[] | Error> {
+  paginate?: {
+    limit: number;
+    cursors: { cursorKey: string | number; cursorCol: string }[];
+  }
+): Promise<
+  {
+    [x: string]: any;
+  }[]
+> {
   try {
     function fullTextSearchQuery(searchTerm: string) {
       // its using stemming and tokenization
@@ -32,20 +54,37 @@ async function applyFilters(
       return sql`to_tsvector('simple', ${columnConcatenation}) @@ phraseto_tsquery('simple', ${searchTerm})`;
     }
 
-    let sq: { [x: string]: SQL.Aliased<unknown> };
+    function orderByParams(parentTable) {
+      const params = [];
+      paginate.cursors.forEach((cursor) => {
+        if (cursor.cursorCol) {
+          params.push(asc(parentTable[cursor.cursorCol]));
+        }
+      });
+      return params;
+    }
+
+    function gtParams(parentTable) {
+      const params = [];
+      paginate.cursors.forEach((cursor) => {
+        if (cursor.cursorKey && cursor.cursorCol) {
+          params.push(gt(parentTable[cursor.cursorCol], cursor.cursorKey));
+        }
+      });
+      return params;
+    }
+
+    let sq:
+      | WithSubquery<string, Record<string, unknown>>
+      | WithSubqueryWithSelection<any, "sq">;
     if (paginate) {
       sq = db.$with("sq").as(
         db
           .select()
           .from(parentTable)
-          .orderBy(desc(parentTable[paginate.cursorCol]))
+          .orderBy(...orderByParams(parentTable))
           .where(
-            and(
-              paginate.cursorKey
-                ? lt(parentTable[paginate.cursorCol], paginate.cursorKey)
-                : undefined,
-              fullTextSearchQuery(filters.pop())
-            )
+            and(...gtParams(parentTable), fullTextSearchQuery(filters.pop()))
           )
       );
       for (let i = 0; i < filters.length; i++) {
@@ -54,12 +93,10 @@ async function applyFilters(
             .with(sq)
             .select()
             .from(sq)
-            .orderBy(desc(sq[paginate.cursorCol]))
+            .orderBy(...orderByParams(sq))
             .where(
               and(
-                paginate.cursorKey
-                  ? lt(sq[paginate.cursorCol], paginate.cursorKey)
-                  : undefined,
+                ...gtParams(sq),
                 inArray(
                   sq[keyCol],
                   db
@@ -72,18 +109,13 @@ async function applyFilters(
         );
       }
 
-      return db
+      const prepared = db
         .with(sq)
         .select()
         .from(sq)
-        .where(
-          paginate.cursorKey
-            ? lt(sq[paginate.cursorCol], paginate.cursorKey)
-            : undefined
-        )
         .limit(paginate.limit)
-        .prepare()
-        .execute();
+        .prepare("p1");
+      return await prepared.execute();
     } else {
       sq = db.$with("sq").as(
         db
@@ -108,39 +140,36 @@ async function applyFilters(
             )
         );
       }
-      return db.with(sq).select().from(sq).prepare().execute();
+      const prepared = db.with(sq).select().from(sq).prepare("p2");
+      return await prepared.execute();
     }
   } catch (error) {
-    console.error(error);
+    console.error("Failed to search: " + error);
   }
 }
 
 export const andTitleFilter: Strategy = {
-  apply: async (filter, table = catalog, cursorKey, cursorCol, limit) => {
+  apply: async (filter, table = catalog, paginate) => {
     if (!filter) {
       return null;
     }
-    return await applyFilters(filter, table, "threadIndex", ["title"], {
-      limit,
-      cursorKey,
-      cursorCol,
-    });
+    return await applyFilters(
+      filter,
+      table,
+      "threadIndex",
+      ["title"],
+      paginate
+    );
   },
 };
 
 export const andBaseFilter: Strategy = {
-  apply: async (
-    filter,
-    table: SelectCatalog[],
-    cursorKey,
-    cursorCol,
-    limit
-  ) => {
+  apply: async (filter, table: SelectCatalog[], paginate) => {
     if (table && table.length === 0) {
       return [];
     }
 
-    let filteredBase: PgTable;
+    let filteredBase: Subquery | PgTable;
     if (table) {
       const threadIndexes = table.map((shop) => shop.threadIndex);
       filteredBase = await db
@@ -161,22 +190,18 @@ export const andBaseFilter: Strategy = {
       filteredBase,
       "itemId",
       ["baseType", "name", "quality"],
-      {
-        limit,
-        cursorKey,
-        cursorCol,
-      }
+      paginate
     );
   },
 };
 
 export const andModFilter: Strategy = {
-  apply: async (filter, table: SelectItem[], cursorKey, cursorCol, limit) => {
+  apply: async (filter, table: SelectItem[], paginate) => {
     if (table && table.length === 0) {
       return [];
     }
 
-    let filteredMods: PgTable;
+    let filteredMods: Subquery | PgTable;
     if (table && table.length > 0) {
       const itemIds = table.map((item) => item.itemId);
       filteredMods = await db
@@ -191,10 +216,12 @@ export const andModFilter: Strategy = {
     if (!filter) {
       return await db.select().from(filteredMods);
     }
-    return await applyFilters(filter, filteredMods, "itemId", ["mod"], {
-      limit,
-      cursorKey,
-      cursorCol,
-    });
+    return await applyFilters(
+      filter,
+      filteredMods,
+      "itemId",
+      ["mod"],
+      paginate
+    );
   },
 };

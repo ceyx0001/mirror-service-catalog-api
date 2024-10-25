@@ -12,11 +12,15 @@ export const catalog = pgTable(
     title: text("title"),
   },
   (table) => ({
-    titleSearchIndex: index("titleSearchIndex")
-      .on(table.title)
-      .using(sql`gin(to_tsvector('simple', ${table.title}))`),
-    viewsIndex: index("viewsIndex").on(table.views).desc(),
-    threadDescIndex: index("threadDescIndex").on(table.threadIndex).asc(),
+    titleSearchIndex: index("titleSearchIndex").using(
+      `gin`,
+      sql`to_tsvector('simple', ${table.title})`,
+      table.title
+    ),
+    catalogViewsIndex: index("catalogViewsIndex").on(table.views),
+    catalogThreadIndexDesc: index("catalogThreadIndexDesc").on(
+      table.threadIndex.desc()
+    ),
   })
 );
 

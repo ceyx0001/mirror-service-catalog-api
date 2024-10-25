@@ -88,11 +88,12 @@ exports.shopsInRange = (0, express_async_handler_1.default)((req, res) => __awai
     const threadIndex = req.query.threadIndex;
     const limit = req.query.limit || 10;
     if (!threadIndex) {
-        res.json(yield db.getShopsInRange(limit));
+        res.json(yield db.getShopsInRange({ threadIndex: 0, limit }));
     }
     else {
-        res.json(yield db.getShopsInRange(limit, {
+        res.json(yield db.getShopsInRange({
             threadIndex: threadIndex,
+            limit: limit,
         }));
     }
 }));

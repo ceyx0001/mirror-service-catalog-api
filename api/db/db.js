@@ -35,22 +35,23 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.pool = exports.db = void 0;
 const postgres_1 = __importDefault(require("postgres"));
+const pg_1 = require("pg");
 const postgres_js_1 = require("drizzle-orm/postgres-js");
 const catalogSchema = __importStar(require("./schemas/catalogSchema"));
 const itemsSchema = __importStar(require("./schemas/itemsSchema"));
 const modsSchema = __importStar(require("./schemas/modsSchema"));
 let db;
+let pool;
 main().catch((err) => console.error(err));
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
         const connectionString = process.env.POSTGRES_URL;
-        const client = (0, postgres_1.default)(connectionString, {
-            prepare: false,
-        });
-        db = (0, postgres_js_1.drizzle)(client, {
+        exports.pool = pool = new pg_1.Pool({ connectionString: connectionString });
+        const client = (0, postgres_1.default)(connectionString);
+        exports.db = db = (0, postgres_js_1.drizzle)(client, {
             schema: Object.assign(Object.assign(Object.assign({}, catalogSchema), itemsSchema), modsSchema),
         });
     });
 }
-exports.default = db;

@@ -8,12 +8,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.andModFilter = exports.andBaseFilter = exports.andTitleFilter = void 0;
-const db_1 = __importDefault(require("../../db"));
+const db_1 = require("../../db");
 const drizzle_orm_1 = require("drizzle-orm");
 const catalogSchema_1 = require("../../schemas/catalogSchema");
 const itemsSchema_1 = require("../../schemas/itemsSchema");
@@ -28,83 +25,91 @@ function applyFilters(filters, parentTable, keyCol, columns, paginate) {
                     .reduce((acc, col) => (0, drizzle_orm_1.sql) `${acc} || ' ' || ${col}`);
                 return (0, drizzle_orm_1.sql) `to_tsvector('simple', ${columnConcatenation}) @@ phraseto_tsquery('simple', ${searchTerm})`;
             }
+            function orderByParams(parentTable) {
+                const params = [];
+                paginate.cursors.forEach((cursor) => {
+                    if (cursor.cursorCol) {
+                        params.push((0, drizzle_orm_1.asc)(parentTable[cursor.cursorCol]));
+                    }
+                });
+                return params;
+            }
+            function gtParams(parentTable) {
+                const params = [];
+                paginate.cursors.forEach((cursor) => {
+                    if (cursor.cursorKey && cursor.cursorCol) {
+                        params.push((0, drizzle_orm_1.gt)(parentTable[cursor.cursorCol], cursor.cursorKey));
+                    }
+                });
+                return params;
+            }
             let sq;
             if (paginate) {
-                sq = db_1.default.$with("sq").as(db_1.default
+                sq = db_1.db.$with("sq").as(db_1.db
                     .select()
                     .from(parentTable)
-                    .orderBy((0, drizzle_orm_1.desc)(parentTable[paginate.cursorCol]))
-                    .where((0, drizzle_orm_1.and)(paginate.cursorKey
-                    ? (0, drizzle_orm_1.lt)(parentTable[paginate.cursorCol], paginate.cursorKey)
-                    : undefined, fullTextSearchQuery(filters.pop()))));
+                    .orderBy(...orderByParams(parentTable))
+                    .where((0, drizzle_orm_1.and)(...gtParams(parentTable), fullTextSearchQuery(filters.pop()))));
                 for (let i = 0; i < filters.length; i++) {
-                    sq = db_1.default.$with("sq").as(db_1.default
+                    sq = db_1.db.$with("sq").as(db_1.db
                         .with(sq)
                         .select()
                         .from(sq)
-                        .orderBy((0, drizzle_orm_1.desc)(sq[paginate.cursorCol]))
-                        .where((0, drizzle_orm_1.and)(paginate.cursorKey
-                        ? (0, drizzle_orm_1.lt)(sq[paginate.cursorCol], paginate.cursorKey)
-                        : undefined, (0, drizzle_orm_1.inArray)(sq[keyCol], db_1.default
+                        .orderBy(...orderByParams(sq))
+                        .where((0, drizzle_orm_1.and)(...gtParams(sq), (0, drizzle_orm_1.inArray)(sq[keyCol], db_1.db
                         .select({ [keyCol]: parentTable[keyCol] })
                         .from(parentTable)
                         .where(fullTextSearchQuery(filters[i]))))));
                 }
-                return db_1.default
+                const prepared = db_1.db
                     .with(sq)
                     .select()
                     .from(sq)
-                    .where(paginate.cursorKey
-                    ? (0, drizzle_orm_1.lt)(sq[paginate.cursorCol], paginate.cursorKey)
-                    : undefined)
                     .limit(paginate.limit)
-                    .prepare()
-                    .execute();
+                    .prepare("p1");
+                return yield prepared.execute();
             }
             else {
-                sq = db_1.default.$with("sq").as(db_1.default
+                sq = db_1.db.$with("sq").as(db_1.db
                     .select()
                     .from(parentTable)
                     .where((0, drizzle_orm_1.and)(fullTextSearchQuery(filters.pop()))));
                 for (let i = 0; i < filters.length; i++) {
-                    sq = db_1.default.$with("sq").as(db_1.default
+                    sq = db_1.db.$with("sq").as(db_1.db
                         .with(sq)
                         .select()
                         .from(sq)
-                        .where((0, drizzle_orm_1.inArray)(sq[keyCol], db_1.default
+                        .where((0, drizzle_orm_1.inArray)(sq[keyCol], db_1.db
                         .select({ [keyCol]: parentTable[keyCol] })
                         .from(parentTable)
                         .where(fullTextSearchQuery(filters[i])))));
                 }
-                return db_1.default.with(sq).select().from(sq).prepare().execute();
+                const prepared = db_1.db.with(sq).select().from(sq).prepare("p2");
+                return yield prepared.execute();
             }
         }
         catch (error) {
-            console.error(error);
+            console.error("Failed to search: " + error);
         }
     });
 }
 exports.andTitleFilter = {
-    apply: (filter_1, ...args_1) => __awaiter(void 0, [filter_1, ...args_1], void 0, function* (filter, table = catalogSchema_1.catalog, cursorKey, cursorCol, limit) {
+    apply: (filter_1, ...args_1) => __awaiter(void 0, [filter_1, ...args_1], void 0, function* (filter, table = catalogSchema_1.catalog, paginate) {
         if (!filter) {
             return null;
         }
-        return yield applyFilters(filter, table, "threadIndex", ["title"], {
-            limit,
-            cursorKey,
-            cursorCol,
-        });
+        return yield applyFilters(filter, table, "threadIndex", ["title"], paginate);
     }),
 };
 exports.andBaseFilter = {
-    apply: (filter, table, cursorKey, cursorCol, limit) => __awaiter(void 0, void 0, void 0, function* () {
+    apply: (filter, table, paginate) => __awaiter(void 0, void 0, void 0, function* () {
         if (table && table.length === 0) {
             return [];
         }
         let filteredBase;
         if (table) {
             const threadIndexes = table.map((shop) => shop.threadIndex);
-            filteredBase = yield db_1.default
+            filteredBase = yield db_1.db
                 .select()
                 .from(itemsSchema_1.items)
                 .where((0, drizzle_orm_1.inArray)(itemsSchema_1.items.threadIndex, threadIndexes))
@@ -114,24 +119,20 @@ exports.andBaseFilter = {
             filteredBase = itemsSchema_1.items;
         }
         if (!filter) {
-            return yield db_1.default.select().from(filteredBase);
+            return yield db_1.db.select().from(filteredBase);
         }
-        return yield applyFilters(filter, filteredBase, "itemId", ["baseType", "name", "quality"], {
-            limit,
-            cursorKey,
-            cursorCol,
-        });
+        return yield applyFilters(filter, filteredBase, "itemId", ["baseType", "name", "quality"], paginate);
     }),
 };
 exports.andModFilter = {
-    apply: (filter, table, cursorKey, cursorCol, limit) => __awaiter(void 0, void 0, void 0, function* () {
+    apply: (filter, table, paginate) => __awaiter(void 0, void 0, void 0, function* () {
         if (table && table.length === 0) {
             return [];
         }
         let filteredMods;
         if (table && table.length > 0) {
             const itemIds = table.map((item) => item.itemId);
-            filteredMods = yield db_1.default
+            filteredMods = yield db_1.db
                 .select()
                 .from(modsSchema_1.mods)
                 .where((0, drizzle_orm_1.inArray)(modsSchema_1.mods.itemId, itemIds))
@@ -141,12 +142,8 @@ exports.andModFilter = {
             filteredMods = modsSchema_1.mods;
         }
         if (!filter) {
-            return yield db_1.default.select().from(filteredMods);
+            return yield db_1.db.select().from(filteredMods);
         }
-        return yield applyFilters(filter, filteredMods, "itemId", ["mod"], {
-            limit,
-            cursorKey,
-            cursorCol,
-        });
+        return yield applyFilters(filter, filteredMods, "itemId", ["mod"], paginate);
     }),
 };

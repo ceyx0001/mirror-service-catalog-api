@@ -2,7 +2,7 @@ import * as andSearch from "./and/andSearch";
 
 function addDupes(str, count) {
   const val = parseInt(str.split("%")[0].split().pop());
-  const newVal = val * (count + 1);
+  const newVal = val * count;
   return str.replace(val, newVal);
 }
 
@@ -10,7 +10,7 @@ export function groupMods(mods) {
   const modsMap = new Map();
   for (const mod of mods) {
     const key = mod.type;
-    if (mod.dupes) {
+    if (mod.dupes > 1) {
       mod.mod = addDupes(mod.mod, mod.dupes);
     }
     if (modsMap.get(key)) {

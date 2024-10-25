@@ -1,10 +1,8 @@
-import { items, SelectItem } from "../../schemas/itemsSchema";
-import db from "../../db";
+import { items } from "../../schemas/itemsSchema";
+import { db } from "../../db";
 import { Filters, mapItemsToShop } from "../search";
-import { asc, gt, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import * as andStrategy from "./andStrategies";
-import { catalog, SelectCatalog } from "../../schemas/catalogSchema";
-import { SelectMod } from "../../schemas/modsSchema";
 
 export async function getItems(
   filters: Filters,
@@ -16,32 +14,41 @@ export async function getItems(
       {
         filter: filters.titleFilters,
         strategy: andStrategy.andTitleFilter,
-        cursorKey: cursors.threadIndex,
-        cursorCol: "threadIndex",
+        paginate: {
+          limit: limit,
+          cursors: [
+            { cursorKey: cursors.threadIndex, cursorCol: "threadIndex" },
+          ],
+        },
       },
       {
         filter: filters.baseFilters,
         strategy: andStrategy.andBaseFilter,
-        cursorKey: cursors.threadIndex,
-        cursorCol: "threadIndex",
+        paginate: {
+          limit: limit,
+          cursors: [
+            { cursorKey: cursors.threadIndex, cursorCol: "threadIndex" },
+          ],
+        },
       },
       {
         filter: filters.modFilters,
         strategy: andStrategy.andModFilter,
-        cursorKey: cursors.itemId,
-        cursorCol: "itemId",
+        paginate: {
+          limit: limit,
+          cursors: [
+            { cursorKey: cursors.threadIndex, cursorCol: "threadIndex" },
+          ],
+        },
       },
     ];
 
-    let filteredTable: SelectMod[] | Error;
-
+    let filteredTable: { [column: string]: any }[];
     for (let filterObj of filtersArray) {
       filteredTable = await filterObj.strategy.apply(
         filterObj.filter,
         filteredTable,
-        filterObj.cursorKey,
-        filterObj.cursorCol,
-        limit
+        filterObj.paginate
       );
     }
 
@@ -52,7 +59,7 @@ export async function getItems(
       filteredTable.length > 0
     ) {
       const itemIdSet = new Set<string>();
-      const itemIdCursor = filteredTable[filteredTable.length - 1].itemId;
+      const cursorKey = filteredTable[filteredTable.length - 1].threadIndex;
       filteredTable.map((mod: { itemId: string }) => itemIdSet.add(mod.itemId));
       const itemIds: string[] = Array.from(itemIdSet);
       const result = await db.query.items.findMany({
@@ -62,9 +69,11 @@ export async function getItems(
           mods: { columns: { itemId: false } },
           catalog: { columns: { views: false } },
         },
+        orderBy: items.threadIndex,
       });
       const res = Array.from(mapItemsToShop(result));
-      return { array: res, cursor: itemIdCursor };
+      console.log(res);
+      return { array: res, cursor: cursorKey };
     }
     return { array: [], cursor: null };
   } catch (error) {

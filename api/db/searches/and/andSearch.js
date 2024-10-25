@@ -31,13 +31,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getItems = getItems;
 const itemsSchema_1 = require("../../schemas/itemsSchema");
-const db_1 = __importDefault(require("../../db"));
+const db_1 = require("../../db");
 const search_1 = require("../search");
 const drizzle_orm_1 = require("drizzle-orm");
 const andStrategy = __importStar(require("./andStrategies"));
@@ -48,44 +45,58 @@ function getItems(filters, cursors, limit) {
                 {
                     filter: filters.titleFilters,
                     strategy: andStrategy.andTitleFilter,
-                    cursorKey: cursors.threadIndex,
-                    cursorCol: "threadIndex",
+                    paginate: {
+                        limit: limit,
+                        cursors: [
+                            { cursorKey: cursors.threadIndex, cursorCol: "threadIndex" },
+                        ],
+                    },
                 },
                 {
                     filter: filters.baseFilters,
                     strategy: andStrategy.andBaseFilter,
-                    cursorKey: cursors.threadIndex,
-                    cursorCol: "threadIndex",
+                    paginate: {
+                        limit: limit,
+                        cursors: [
+                            { cursorKey: cursors.threadIndex, cursorCol: "threadIndex" },
+                        ],
+                    },
                 },
                 {
                     filter: filters.modFilters,
                     strategy: andStrategy.andModFilter,
-                    cursorKey: cursors.itemId,
-                    cursorCol: "itemId",
+                    paginate: {
+                        limit: limit,
+                        cursors: [
+                            { cursorKey: cursors.threadIndex, cursorCol: "threadIndex" },
+                        ],
+                    },
                 },
             ];
             let filteredTable;
             for (let filterObj of filtersArray) {
-                filteredTable = yield filterObj.strategy.apply(filterObj.filter, filteredTable, filterObj.cursorKey, filterObj.cursorCol, limit);
+                filteredTable = yield filterObj.strategy.apply(filterObj.filter, filteredTable, filterObj.paginate);
             }
             // need to not use entire table if the previous filter didnt do anything -> test searching for a title only that doesnt exist
             if (filteredTable &&
                 filteredTable instanceof Array &&
                 filteredTable.length > 0) {
                 const itemIdSet = new Set();
-                const itemIdCursor = filteredTable[filteredTable.length - 1].itemId;
+                const cursorKey = filteredTable[filteredTable.length - 1].threadIndex;
                 filteredTable.map((mod) => itemIdSet.add(mod.itemId));
                 const itemIds = Array.from(itemIdSet);
-                const result = yield db_1.default.query.items.findMany({
+                const result = yield db_1.db.query.items.findMany({
                     where: (0, drizzle_orm_1.inArray)(itemsSchema_1.items.itemId, itemIds),
                     columns: { threadIndex: false },
                     with: {
                         mods: { columns: { itemId: false } },
                         catalog: { columns: { views: false } },
                     },
+                    orderBy: itemsSchema_1.items.threadIndex,
                 });
                 const res = Array.from((0, search_1.mapItemsToShop)(result));
-                return { array: res, cursor: itemIdCursor };
+                console.log(res);
+                return { array: res, cursor: cursorKey };
             }
             return { array: [], cursor: null };
         }

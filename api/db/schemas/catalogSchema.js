@@ -11,11 +11,9 @@ exports.catalog = (0, pg_core_1.pgTable)("catalog", {
     views: (0, pg_core_1.integer)("views"),
     title: (0, pg_core_1.text)("title"),
 }, (table) => ({
-    titleSearchIndex: (0, pg_core_1.index)("titleSearchIndex")
-        .on(table.title)
-        .using((0, drizzle_orm_1.sql) `gin(to_tsvector('simple', ${table.title}))`),
-    viewsIndex: (0, pg_core_1.index)("viewsIndex").on(table.views).desc(),
-    threadDescIndex: (0, pg_core_1.index)("threadDescIndex").on(table.threadIndex).asc(),
+    titleSearchIndex: (0, pg_core_1.index)("titleSearchIndex").using(`gin`, (0, drizzle_orm_1.sql) `to_tsvector('simple', ${table.title})`, table.title),
+    catalogViewsIndex: (0, pg_core_1.index)("catalogViewsIndex").on(table.views),
+    catalogThreadIndexDesc: (0, pg_core_1.index)("catalogThreadIndexDesc").on(table.threadIndex.desc()),
 }));
 exports.catalogRelations = (0, drizzle_orm_1.relations)(exports.catalog, ({ many }) => ({
     items: many(itemsSchema_1.items),

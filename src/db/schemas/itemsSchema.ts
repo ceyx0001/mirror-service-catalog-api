@@ -17,12 +17,17 @@ export const items = pgTable(
       .references(() => catalog.threadIndex, { onUpdate: "cascade" }),
   },
   (table) => ({
-    nameSearchIndex: index("nameSearchIndex")
-      .on(table.name)
-      .using(sql`gin(to_tsvector('simple', ${table.name}))`),
-    baseTypeSearchIndex: index("baseTypeSearchIndex")
-      .on(table.baseType)
-      .using(sql`gin(to_tsvector('simple', ${table.baseType}))`),
+    nameSearchIndex: index("nameSearchIndex").using(
+      `gin`,
+      sql`to_tsvector('simple', ${table.name})`,
+      table.name
+    ),
+    baseTypeSearchIndex: index("baseTypeSearchIndex").using(
+      `gin`,
+      sql`to_tsvector('simple', ${table.baseType})`,
+      table.baseType
+    ),
+    itemsIdIndex: index("itemsIdIndex").using(`btree`, table.itemId.desc()),
   })
 );
 

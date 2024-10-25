@@ -61,13 +61,14 @@ export const threadsInRange = asyncHandler(
 export const shopsInRange = asyncHandler(
   async (req: Request, res: Response) => {
     const threadIndex = req.query.threadIndex;
-    const limit = req.query.limit || 10;
+    const limit: number = req.query.limit || 10;
     if (!threadIndex) {
-      res.json(await db.getShopsInRange(limit));
+      res.json(await db.getShopsInRange({ threadIndex: 0, limit }));
     } else {
       res.json(
-        await db.getShopsInRange(limit, {
+        await db.getShopsInRange({
           threadIndex: threadIndex,
+          limit: limit,
         })
       );
     }

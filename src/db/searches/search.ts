@@ -1,5 +1,13 @@
 import * as andSearch from "./and/andSearch";
 
+
+export type Filters = {
+  modFilters: string[];
+  baseFilters: string[];
+  titleFilters: string[];
+};
+
+
 function addDupes(str, count) {
   const val = parseInt(str.split("%")[0].split().pop());
   const newVal = val * count;
@@ -42,7 +50,7 @@ export function mapItemsToShop(items) {
 
 export async function filterItems(
   filters: Filters,
-  cursors: { threadIndex: number; itemId: string },
+  cursors: { threadIndex: string; itemId: string },
   limit: number
 ): Promise<{
   array: object[];
@@ -55,9 +63,3 @@ export async function filterItems(
     console.error(error);
   }
 }
-
-export type Filters = {
-  modFilters: string[];
-  baseFilters: string[];
-  titleFilters: string[];
-};

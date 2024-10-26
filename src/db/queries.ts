@@ -182,7 +182,7 @@ export async function getShopsInRange(cursor: {
 
 export async function getFilteredItems(
   filters: Filters,
-  cursors: { threadIndex: number; itemId: string },
+  cursors: { threadIndex: string; itemId: string },
   limit: number
 ) {
   return await filterItems(filters, cursors, limit);

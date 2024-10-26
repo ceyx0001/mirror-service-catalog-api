@@ -4,9 +4,20 @@ import { Filters, mapItemsToShop } from "../search";
 import { inArray } from "drizzle-orm";
 import * as andStrategy from "./andStrategies";
 
+export type Cursor = {
+  cursorKey: unknown;
+  cursorCol: string;
+  discovered: boolean;
+};
+
+export type Paginate = {
+  limit: number;
+  cursors: Cursor[];
+};
+
 export async function getItems(
   filters: Filters,
-  cursors: { threadIndex: number; itemId: string },
+  cursors: { threadIndex: string; itemId: string },
   limit: number
 ): Promise<{ array: object[]; cursor: string }> {
   try {
@@ -17,7 +28,11 @@ export async function getItems(
         paginate: {
           limit: limit,
           cursors: [
-            { cursorKey: cursors.threadIndex, cursorCol: "threadIndex" },
+            {
+              cursorKey: cursors.threadIndex,
+              cursorCol: "threadIndex",
+              discovered: false,
+            },
           ],
         },
       },
@@ -27,7 +42,11 @@ export async function getItems(
         paginate: {
           limit: limit,
           cursors: [
-            { cursorKey: cursors.threadIndex, cursorCol: "threadIndex" },
+            {
+              cursorKey: cursors.threadIndex,
+              cursorCol: "threadIndex",
+              discovered: false,
+            },
           ],
         },
       },
@@ -37,21 +56,47 @@ export async function getItems(
         paginate: {
           limit: limit,
           cursors: [
-            { cursorKey: cursors.threadIndex, cursorCol: "threadIndex" },
+            {
+              cursorKey: cursors.threadIndex,
+              cursorCol: "threadIndex",
+              discovered: false,
+            },
           ],
         },
       },
     ];
 
-    let filteredTable: { [column: string]: any }[];
-    for (let filterObj of filtersArray) {
-      filteredTable = await filterObj.strategy.apply(
-        filterObj.filter,
-        filteredTable,
-        filterObj.paginate
-      );
+    function noResult(filtersArray) {
+      return filtersArray.every((filterObj) => {
+        return filterObj.paginate.cursors.every(
+          (cursor: Cursor) => cursor.cursorKey === undefined
+        );
+      });
     }
 
+    let filteredTable: { [column: string]: any }[] = [];
+    do {
+      filteredTable = [];
+      for (let filterObj of filtersArray) {
+        const copy = [...filterObj.filter];
+        filteredTable = await filterObj.strategy.apply(
+          copy,
+          filteredTable,
+          filterObj.paginate
+        );
+      }
+    } while (
+      filteredTable instanceof Array &&
+      filteredTable.length === 0 &&
+      !noResult(filtersArray)
+    );
+    /*
+
+    filtersArray.forEach((e) => {
+      console.log(e.paginate);
+    });
+
+*/
     // need to not use entire table if the previous filter didnt do anything -> test searching for a title only that doesnt exist
     if (
       filteredTable &&
@@ -72,8 +117,10 @@ export async function getItems(
         orderBy: items.threadIndex,
       });
       const res = Array.from(mapItemsToShop(result));
-      console.log(res);
-      return { array: res, cursor: cursorKey };
+      return {
+        array: res,
+        cursor: cursorKey,
+      };
     }
     return { array: [], cursor: null };
   } catch (error) {

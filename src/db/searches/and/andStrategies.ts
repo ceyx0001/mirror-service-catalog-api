@@ -3,10 +3,8 @@ import { PgTable, WithSubqueryWithSelection } from "drizzle-orm/pg-core";
 import {
   and,
   asc,
-  desc,
   gt,
   inArray,
-  lt,
   sql,
   Subquery,
   WithSubquery,
@@ -14,15 +12,13 @@ import {
 import { catalog, SelectCatalog } from "../../schemas/catalogSchema";
 import { items, SelectItem } from "../../schemas/itemsSchema";
 import { mods } from "../../schemas/modsSchema";
+import { Paginate } from "./andSearch";
 
 export type Strategy = {
   apply: (
     filter: string[],
     table: any,
-    paginate?: {
-      limit: number;
-      cursors: { cursorKey: string | number; cursorCol: string }[];
-    }
+    paginate?: Paginate
   ) => Promise<
     {
       [x: string]: any;
@@ -35,48 +31,40 @@ async function applyFilters(
   parentTable: PgTable | Subquery,
   keyCol: string,
   columns: string[],
-  paginate?: {
-    limit: number;
-    cursors: { cursorKey: string | number; cursorCol: string }[];
+  paginate?: Paginate
+): Promise<{ [x: string]: any }[]> {
+  function fullTextSearchQuery(searchTerm: string) {
+    const columnConcatenation = columns
+      .map((column) => sql`COALESCE(${parentTable[column]}, '')`)
+      .reduce((acc, col) => sql`${acc} || ' ' || ${col}`);
+    return sql`to_tsvector('simple', ${columnConcatenation}) @@ phraseto_tsquery('simple', ${searchTerm})`;
   }
-): Promise<
-  {
-    [x: string]: any;
-  }[]
-> {
+
+  function orderByParams(parentTable) {
+    const params = [];
+    paginate.cursors.forEach((cursor) => {
+      if (cursor.cursorCol) {
+        params.push(asc(parentTable[cursor.cursorCol]));
+      }
+    });
+    return params;
+  }
+
+  function gtParams(parentTable) {
+    const params = [];
+    paginate.cursors.forEach((cursor) => {
+      if (cursor.cursorKey && cursor.cursorCol) {
+        params.push(gt(parentTable[cursor.cursorCol], cursor.cursorKey));
+      }
+    });
+    return params;
+  }
+
+  let sq:
+    | WithSubquery<string, Record<string, unknown>>
+    | WithSubqueryWithSelection<any, "sq">;
+
   try {
-    function fullTextSearchQuery(searchTerm: string) {
-      // its using stemming and tokenization
-      const columnConcatenation = columns
-        .map((column) => sql`COALESCE(${parentTable[column]}, '')`)
-        .reduce((acc, col) => sql`${acc} || ' ' || ${col}`);
-
-      return sql`to_tsvector('simple', ${columnConcatenation}) @@ phraseto_tsquery('simple', ${searchTerm})`;
-    }
-
-    function orderByParams(parentTable) {
-      const params = [];
-      paginate.cursors.forEach((cursor) => {
-        if (cursor.cursorCol) {
-          params.push(asc(parentTable[cursor.cursorCol]));
-        }
-      });
-      return params;
-    }
-
-    function gtParams(parentTable) {
-      const params = [];
-      paginate.cursors.forEach((cursor) => {
-        if (cursor.cursorKey && cursor.cursorCol) {
-          params.push(gt(parentTable[cursor.cursorCol], cursor.cursorKey));
-        }
-      });
-      return params;
-    }
-
-    let sq:
-      | WithSubquery<string, Record<string, unknown>>
-      | WithSubqueryWithSelection<any, "sq">;
     if (paginate) {
       sq = db.$with("sq").as(
         db
@@ -87,6 +75,7 @@ async function applyFilters(
             and(...gtParams(parentTable), fullTextSearchQuery(filters.pop()))
           )
       );
+
       for (let i = 0; i < filters.length; i++) {
         sq = db.$with("sq").as(
           db
@@ -109,13 +98,33 @@ async function applyFilters(
         );
       }
 
-      const prepared = db
-        .with(sq)
-        .select()
-        .from(sq)
-        .limit(paginate.limit)
-        .prepare("p1");
-      return await prepared.execute();
+      try {
+        const prepared = db
+          .with(sq)
+          .select()
+          .from(sq)
+          .limit(paginate.limit)
+          .prepare("p1");
+        const res = await prepared.execute();
+        if (res instanceof Array && res.length > 0) {
+          const lastRes = res[res.length - 1];
+          paginate.cursors.forEach((cursor) => {
+            if (lastRes && lastRes[cursor.cursorCol]) {
+              cursor.cursorKey = `${lastRes[cursor.cursorCol]}`;
+              cursor.discovered = true;
+            }
+          });
+        } else {
+          paginate.cursors.forEach((cursor) => {
+            cursor.discovered = false;
+          });
+        }
+        return res;
+      } catch (error) {
+        console.error(
+          "Failed to execute prepared query with pagination: " + error
+        );
+      }
     } else {
       sq = db.$with("sq").as(
         db
@@ -123,6 +132,7 @@ async function applyFilters(
           .from(parentTable)
           .where(and(fullTextSearchQuery(filters.pop())))
       );
+
       for (let i = 0; i < filters.length; i++) {
         sq = db.$with("sq").as(
           db
@@ -140,18 +150,23 @@ async function applyFilters(
             )
         );
       }
-      const prepared = db.with(sq).select().from(sq).prepare("p2");
-      return await prepared.execute();
+
+      try {
+        const prepared = db.with(sq).select().from(sq).prepare("p2");
+        return await prepared.execute();
+      } catch (error) {
+        console.error("Failed to execute prepared query: " + error);
+      }
     }
   } catch (error) {
-    console.error("Failed to search: " + error);
+    console.error("Failed to build query: " + error);
   }
 }
 
 export const andTitleFilter: Strategy = {
   apply: async (filter, table = catalog, paginate) => {
-    if (!filter) {
-      return null;
+    if (filter.length === 0) {
+      return [];
     }
     return await applyFilters(
       filter,
@@ -165,12 +180,8 @@ export const andTitleFilter: Strategy = {
 
 export const andBaseFilter: Strategy = {
   apply: async (filter, table: SelectCatalog[], paginate) => {
-    if (table && table.length === 0) {
-      return [];
-    }
-
     let filteredBase: Subquery | PgTable;
-    if (table) {
+    if (table && table.length > 0) {
       const threadIndexes = table.map((shop) => shop.threadIndex);
       filteredBase = await db
         .select()
@@ -181,24 +192,26 @@ export const andBaseFilter: Strategy = {
       filteredBase = items;
     }
 
-    if (!filter) {
+    if (filter.length === 0) {
       return await db.select().from(filteredBase);
     }
 
-    return await applyFilters(
+    const res = await applyFilters(
       filter,
       filteredBase,
       "itemId",
       ["baseType", "name", "quality"],
       paginate
     );
+    
+    return res;
   },
 };
 
 export const andModFilter: Strategy = {
   apply: async (filter, table: SelectItem[], paginate) => {
-    if (table && table.length === 0) {
-      return [];
+    if (!filter) {
+      return table;
     }
 
     let filteredMods: Subquery | PgTable;
@@ -213,15 +226,17 @@ export const andModFilter: Strategy = {
       filteredMods = mods;
     }
 
-    if (!filter) {
+    if (filter.length === 0) {
       return await db.select().from(filteredMods);
     }
-    return await applyFilters(
+
+    const res = await applyFilters(
       filter,
       filteredMods,
       "itemId",
       ["mod"],
       paginate
     );
+    return res;
   },
 };

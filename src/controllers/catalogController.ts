@@ -3,6 +3,7 @@ import { getThreadsData, Thread } from "./threadsController";
 import * as db from "../db/queries";
 import asyncHandler from "express-async-handler";
 import { Request, Response, NextFunction } from "express";
+import { Filters } from "../db/searches/search";
 
 export const catalogUpdate = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -77,25 +78,25 @@ export const shopsInRange = asyncHandler(
 
 export const filteredItems = asyncHandler(
   async (req: Request, res: Response) => {
-    const filters = {
+    const filters: Filters = {
       titleFilters:
         req.query.title !== undefined
           ? Array.isArray(req.query.title)
             ? req.query.title
             : [req.query.title]
-          : undefined,
+          : [],
       modFilters:
         req.query.mod !== undefined
           ? Array.isArray(req.query.mod)
             ? req.query.mod
             : [req.query.mod]
-          : undefined,
+          : [],
       baseFilters:
         req.query.base !== undefined
           ? Array.isArray(req.query.base)
             ? req.query.base
             : [req.query.base]
-          : undefined,
+          : [],
     };
     const cursors = { threadIndex: null, itemId: null };
     cursors.threadIndex =

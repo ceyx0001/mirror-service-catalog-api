@@ -48,7 +48,11 @@ function getItems(filters, cursors, limit) {
                     paginate: {
                         limit: limit,
                         cursors: [
-                            { cursorKey: cursors.threadIndex, cursorCol: "threadIndex" },
+                            {
+                                cursorKey: cursors.threadIndex,
+                                cursorCol: "threadIndex",
+                                discovered: false,
+                            },
                         ],
                     },
                 },
@@ -58,7 +62,11 @@ function getItems(filters, cursors, limit) {
                     paginate: {
                         limit: limit,
                         cursors: [
-                            { cursorKey: cursors.threadIndex, cursorCol: "threadIndex" },
+                            {
+                                cursorKey: cursors.threadIndex,
+                                cursorCol: "threadIndex",
+                                discovered: false,
+                            },
                         ],
                     },
                 },
@@ -68,21 +76,39 @@ function getItems(filters, cursors, limit) {
                     paginate: {
                         limit: limit,
                         cursors: [
-                            { cursorKey: cursors.threadIndex, cursorCol: "threadIndex" },
+                            {
+                                cursorKey: cursors.threadIndex,
+                                cursorCol: "threadIndex",
+                                discovered: false,
+                            },
                         ],
                     },
                 },
             ];
-            let filteredTable;
-            for (let filterObj of filtersArray) {
-                filteredTable = yield filterObj.strategy.apply(filterObj.filter, filteredTable, filterObj.paginate);
+            function noResult(filtersArray) {
+                return filtersArray.every((filterObj) => {
+                    if (filterObj.filter && filterObj.filter.length > 0) {
+                        return filterObj.paginate.cursors.every((cursor) => !cursor.discovered);
+                    }
+                    return true;
+                });
             }
+            let filteredTable;
+            do {
+                filteredTable = undefined;
+                for (let filterObj of filtersArray) {
+                    const copy = [...filterObj.filter];
+                    filteredTable = yield filterObj.strategy.apply(copy, filteredTable, filterObj.paginate);
+                }
+            } while (filteredTable instanceof Array &&
+                filteredTable.length === 0 &&
+                !noResult(filtersArray));
             // need to not use entire table if the previous filter didnt do anything -> test searching for a title only that doesnt exist
             if (filteredTable &&
                 filteredTable instanceof Array &&
                 filteredTable.length > 0) {
                 const itemIdSet = new Set();
-                const cursorKey = filteredTable[filteredTable.length - 1].threadIndex;
+                let cursorKey = filteredTable[filteredTable.length - 1].threadIndex;
                 filteredTable.map((mod) => itemIdSet.add(mod.itemId));
                 const itemIds = Array.from(itemIdSet);
                 const result = yield db_1.db.query.items.findMany({
@@ -95,8 +121,10 @@ function getItems(filters, cursors, limit) {
                     orderBy: itemsSchema_1.items.threadIndex,
                 });
                 const res = Array.from((0, search_1.mapItemsToShop)(result));
-                console.log(res);
-                return { array: res, cursor: cursorKey };
+                return {
+                    array: res,
+                    cursor: cursorKey,
+                };
             }
             return { array: [], cursor: null };
         }

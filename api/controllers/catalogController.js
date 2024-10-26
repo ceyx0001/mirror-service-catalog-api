@@ -103,22 +103,21 @@ exports.filteredItems = (0, express_async_handler_1.default)((req, res) => __awa
             ? Array.isArray(req.query.title)
                 ? req.query.title
                 : [req.query.title]
-            : undefined,
+            : [],
         modFilters: req.query.mod !== undefined
             ? Array.isArray(req.query.mod)
                 ? req.query.mod
                 : [req.query.mod]
-            : undefined,
+            : [],
         baseFilters: req.query.base !== undefined
             ? Array.isArray(req.query.base)
                 ? req.query.base
                 : [req.query.base]
-            : undefined,
+            : [],
     };
-    const cursors = { threadIndex: null, itemId: null };
+    const cursors = { threadIndex: null };
     cursors.threadIndex =
         req.query.threadIndex !== "" ? req.query.threadIndex : undefined;
-    cursors.itemId = req.query.itemId !== "" ? req.query.itemId : undefined;
     const limit = req.query.limit !== undefined ? parseInt(req.query.limit) : undefined;
     res.json(yield db.getFilteredItems(filters, cursors, limit));
 }));

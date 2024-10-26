@@ -17,33 +17,32 @@ const itemsSchema_1 = require("../../schemas/itemsSchema");
 const modsSchema_1 = require("../../schemas/modsSchema");
 function applyFilters(filters, parentTable, keyCol, columns, paginate) {
     return __awaiter(this, void 0, void 0, function* () {
+        function fullTextSearchQuery(searchTerm) {
+            const columnConcatenation = columns
+                .map((column) => (0, drizzle_orm_1.sql) `COALESCE(${parentTable[column]}, '')`)
+                .reduce((acc, col) => (0, drizzle_orm_1.sql) `${acc} || ' ' || ${col}`);
+            return (0, drizzle_orm_1.sql) `to_tsvector('simple', ${columnConcatenation}) @@ phraseto_tsquery('simple', ${searchTerm})`;
+        }
+        function orderByParams(parentTable) {
+            const params = [];
+            paginate.cursors.forEach((cursor) => {
+                if (cursor.cursorCol) {
+                    params.push((0, drizzle_orm_1.asc)(parentTable[cursor.cursorCol]));
+                }
+            });
+            return params;
+        }
+        function gtParams(parentTable) {
+            const params = [];
+            paginate.cursors.forEach((cursor) => {
+                if (cursor.cursorKey && cursor.cursorCol) {
+                    params.push((0, drizzle_orm_1.gt)(parentTable[cursor.cursorCol], cursor.cursorKey));
+                }
+            });
+            return params;
+        }
+        let sq;
         try {
-            function fullTextSearchQuery(searchTerm) {
-                // its using stemming and tokenization
-                const columnConcatenation = columns
-                    .map((column) => (0, drizzle_orm_1.sql) `COALESCE(${parentTable[column]}, '')`)
-                    .reduce((acc, col) => (0, drizzle_orm_1.sql) `${acc} || ' ' || ${col}`);
-                return (0, drizzle_orm_1.sql) `to_tsvector('simple', ${columnConcatenation}) @@ phraseto_tsquery('simple', ${searchTerm})`;
-            }
-            function orderByParams(parentTable) {
-                const params = [];
-                paginate.cursors.forEach((cursor) => {
-                    if (cursor.cursorCol) {
-                        params.push((0, drizzle_orm_1.asc)(parentTable[cursor.cursorCol]));
-                    }
-                });
-                return params;
-            }
-            function gtParams(parentTable) {
-                const params = [];
-                paginate.cursors.forEach((cursor) => {
-                    if (cursor.cursorKey && cursor.cursorCol) {
-                        params.push((0, drizzle_orm_1.gt)(parentTable[cursor.cursorCol], cursor.cursorKey));
-                    }
-                });
-                return params;
-            }
-            let sq;
             if (paginate) {
                 sq = db_1.db.$with("sq").as(db_1.db
                     .select()
@@ -61,13 +60,33 @@ function applyFilters(filters, parentTable, keyCol, columns, paginate) {
                         .from(parentTable)
                         .where(fullTextSearchQuery(filters[i]))))));
                 }
-                const prepared = db_1.db
-                    .with(sq)
-                    .select()
-                    .from(sq)
-                    .limit(paginate.limit)
-                    .prepare("p1");
-                return yield prepared.execute();
+                try {
+                    const prepared = db_1.db
+                        .with(sq)
+                        .select()
+                        .from(sq)
+                        .limit(paginate.limit)
+                        .prepare("p1");
+                    const res = yield prepared.execute();
+                    if (res instanceof Array && res.length > 0) {
+                        const lastRes = res[res.length - 1];
+                        paginate.cursors.forEach((cursor) => {
+                            if (lastRes && lastRes[cursor.cursorCol]) {
+                                cursor.cursorKey = `${lastRes[cursor.cursorCol]}`;
+                                cursor.discovered = true;
+                            }
+                        });
+                    }
+                    else {
+                        paginate.cursors.forEach((cursor) => {
+                            cursor.discovered = false;
+                        });
+                    }
+                    return res;
+                }
+                catch (error) {
+                    console.error("Failed to execute prepared query with pagination: " + error);
+                }
             }
             else {
                 sq = db_1.db.$with("sq").as(db_1.db
@@ -84,27 +103,35 @@ function applyFilters(filters, parentTable, keyCol, columns, paginate) {
                         .from(parentTable)
                         .where(fullTextSearchQuery(filters[i])))));
                 }
-                const prepared = db_1.db.with(sq).select().from(sq).prepare("p2");
-                return yield prepared.execute();
+                try {
+                    const prepared = db_1.db.with(sq).select().from(sq).prepare("p2");
+                    return yield prepared.execute();
+                }
+                catch (error) {
+                    console.error("Failed to execute prepared query: " + error);
+                }
             }
         }
         catch (error) {
-            console.error("Failed to search: " + error);
+            console.error("Failed to build query: " + error);
         }
     });
 }
 exports.andTitleFilter = {
-    apply: (filter_1, ...args_1) => __awaiter(void 0, [filter_1, ...args_1], void 0, function* (filter, table = catalogSchema_1.catalog, paginate) {
-        if (!filter) {
-            return null;
+    apply: (filter, table, paginate) => __awaiter(void 0, void 0, void 0, function* () {
+        if (filter.length === 0) {
+            return table;
+        }
+        if (!table) {
+            table = catalogSchema_1.catalog;
         }
         return yield applyFilters(filter, table, "threadIndex", ["title"], paginate);
     }),
 };
 exports.andBaseFilter = {
     apply: (filter, table, paginate) => __awaiter(void 0, void 0, void 0, function* () {
-        if (table && table.length === 0) {
-            return [];
+        if (!filter) {
+            return table;
         }
         let filteredBase;
         if (table) {
@@ -118,19 +145,20 @@ exports.andBaseFilter = {
         else {
             filteredBase = itemsSchema_1.items;
         }
-        if (!filter) {
+        if (filter.length === 0) {
             return yield db_1.db.select().from(filteredBase);
         }
-        return yield applyFilters(filter, filteredBase, "itemId", ["baseType", "name", "quality"], paginate);
+        const res = yield applyFilters(filter, filteredBase, "itemId", ["baseType", "name", "quality"], paginate);
+        return res;
     }),
 };
 exports.andModFilter = {
     apply: (filter, table, paginate) => __awaiter(void 0, void 0, void 0, function* () {
-        if (table && table.length === 0) {
-            return [];
+        if (!filter) {
+            return table;
         }
         let filteredMods;
-        if (table && table.length > 0) {
+        if (table) {
             const itemIds = table.map((item) => item.itemId);
             filteredMods = yield db_1.db
                 .select()
@@ -141,9 +169,10 @@ exports.andModFilter = {
         else {
             filteredMods = modsSchema_1.mods;
         }
-        if (!filter) {
+        if (filter.length === 0) {
             return yield db_1.db.select().from(filteredMods);
         }
-        return yield applyFilters(filter, filteredMods, "itemId", ["mod"], paginate);
+        const res = yield applyFilters(filter, filteredMods, "itemId", ["mod"], paginate);
+        return res;
     }),
 };

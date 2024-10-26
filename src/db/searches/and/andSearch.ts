@@ -17,7 +17,7 @@ export type Paginate = {
 
 export async function getItems(
   filters: Filters,
-  cursors: { threadIndex: string; itemId: string },
+  cursors: { threadIndex: string },
   limit: number
 ): Promise<{ array: object[]; cursor: string }> {
   try {
@@ -68,15 +68,18 @@ export async function getItems(
 
     function noResult(filtersArray) {
       return filtersArray.every((filterObj) => {
-        return filterObj.paginate.cursors.every(
-          (cursor: Cursor) => cursor.cursorKey === undefined
-        );
+        if (filterObj.filter && filterObj.filter.length > 0) {
+          return filterObj.paginate.cursors.every(
+            (cursor) => !cursor.discovered
+          );
+        }
+        return true;
       });
     }
 
-    let filteredTable: { [column: string]: any }[] = [];
+    let filteredTable: { [column: string]: any }[];
     do {
-      filteredTable = [];
+      filteredTable = undefined;
       for (let filterObj of filtersArray) {
         const copy = [...filterObj.filter];
         filteredTable = await filterObj.strategy.apply(
@@ -90,13 +93,7 @@ export async function getItems(
       filteredTable.length === 0 &&
       !noResult(filtersArray)
     );
-    /*
 
-    filtersArray.forEach((e) => {
-      console.log(e.paginate);
-    });
-
-*/
     // need to not use entire table if the previous filter didnt do anything -> test searching for a title only that doesnt exist
     if (
       filteredTable &&
@@ -104,7 +101,7 @@ export async function getItems(
       filteredTable.length > 0
     ) {
       const itemIdSet = new Set<string>();
-      const cursorKey = filteredTable[filteredTable.length - 1].threadIndex;
+      let cursorKey = filteredTable[filteredTable.length - 1].threadIndex;
       filteredTable.map((mod: { itemId: string }) => itemIdSet.add(mod.itemId));
       const itemIds: string[] = Array.from(itemIdSet);
       const result = await db.query.items.findMany({

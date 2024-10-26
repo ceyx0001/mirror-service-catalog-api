@@ -98,11 +98,9 @@ export const filteredItems = asyncHandler(
             : [req.query.base]
           : [],
     };
-    const cursors = { threadIndex: null, itemId: null };
+    const cursors = { threadIndex: null};
     cursors.threadIndex =
       req.query.threadIndex !== "" ? req.query.threadIndex : undefined;
-
-    cursors.itemId = req.query.itemId !== "" ? req.query.itemId : undefined;
 
     const limit =
       req.query.limit !== undefined ? parseInt(req.query.limit) : undefined;

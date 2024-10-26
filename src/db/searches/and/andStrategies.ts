@@ -164,10 +164,15 @@ async function applyFilters(
 }
 
 export const andTitleFilter: Strategy = {
-  apply: async (filter, table = catalog, paginate) => {
+  apply: async (filter, table, paginate) => {
     if (filter.length === 0) {
-      return [];
+      return table;
     }
+    
+    if (!table) {
+      table = catalog;
+    }
+
     return await applyFilters(
       filter,
       table,
@@ -180,8 +185,12 @@ export const andTitleFilter: Strategy = {
 
 export const andBaseFilter: Strategy = {
   apply: async (filter, table: SelectCatalog[], paginate) => {
+    if (!filter) {
+      return table;
+    }
+
     let filteredBase: Subquery | PgTable;
-    if (table && table.length > 0) {
+    if (table) {
       const threadIndexes = table.map((shop) => shop.threadIndex);
       filteredBase = await db
         .select()
@@ -203,7 +212,6 @@ export const andBaseFilter: Strategy = {
       ["baseType", "name", "quality"],
       paginate
     );
-    
     return res;
   },
 };
@@ -215,7 +223,7 @@ export const andModFilter: Strategy = {
     }
 
     let filteredMods: Subquery | PgTable;
-    if (table && table.length > 0) {
+    if (table) {
       const itemIds = table.map((item) => item.itemId);
       filteredMods = await db
         .select()

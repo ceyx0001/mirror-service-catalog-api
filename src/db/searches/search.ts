@@ -50,7 +50,7 @@ export function mapItemsToShop(items) {
 
 export async function filterItems(
   filters: Filters,
-  cursors: { threadIndex: string; itemId: string },
+  cursors: { threadIndex: string },
   limit: number
 ): Promise<{
   array: object[];

@@ -236,7 +236,7 @@ export const andModFilter: Strategy = {
 
     if (filter.length === 0) {
       return await db.select().from(filteredMods);
-    }
+    } 
 
     const res = await applyFilters(
       filter,

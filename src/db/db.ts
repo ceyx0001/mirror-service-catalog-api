@@ -9,12 +9,16 @@ let db;
 let pool: Pool;
 main().catch((err) => console.error(err));
 async function main() {
-  const connectionString = process.env.POSTGRES_URL;
-  pool = new Pool({ connectionString: connectionString });
-  const client = postgres(connectionString);
-  db = drizzle(client, {
-    schema: { ...catalogSchema, ...itemsSchema, ...modsSchema },
-  });
+  try {
+    const connectionString = process.env.POSTGRES_URL;
+    pool = new Pool({ connectionString: connectionString });
+    const client = postgres(connectionString);
+    db = drizzle(client, {
+      schema: { ...catalogSchema, ...itemsSchema, ...modsSchema },
+    });
+  } catch (error) {
+    throw new Error("Failed to connect to database: " + error);
+  }
 }
 
 export { db, pool };

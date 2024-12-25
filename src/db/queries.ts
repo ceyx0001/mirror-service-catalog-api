@@ -153,7 +153,7 @@ export async function updateCatalog(shops) {
       console.log("Catalog loaded successfully.");
     } catch (error) {
       await client.query("ROLLBACK");
-      console.error("Error loading catalog:", error);
+      throw new Error("Error loading catalog: " + error);
     } finally {
       client.release();
     }

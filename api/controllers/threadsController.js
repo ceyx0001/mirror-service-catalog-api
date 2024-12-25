@@ -16,11 +16,17 @@ exports.getThreads = exports.getThreadsData = void 0;
 const axios_1 = __importDefault(require("axios"));
 const cheerio_1 = require("cheerio");
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
+const urlSelling = `https://www.pathofexile.com/forum/view-forum/standard-trading-selling`;
+const urlShops = `https://www.pathofexile.com/forum/view-forum/standard-trading-shops`;
+const urls = [urlSelling, urlShops];
 const getThreadsData = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (startPage = 1, endPage = 50) {
+    if (startPage < 1)
+        throw new Error("Start page must be >= 1");
+    if (endPage < startPage)
+        throw new Error("End page must be >= start page");
+    if (endPage - startPage > 100)
+        throw new Error("Maximum page range exceeded");
     const threads = new Map();
-    const urlSelling = `https://www.pathofexile.com/forum/view-forum/standard-trading-selling`;
-    const urlShops = `https://www.pathofexile.com/forum/view-forum/standard-trading-shops`;
-    const urls = [urlSelling, urlShops];
     const promises = urls.flatMap((url) => Array.from({ length: endPage - startPage + 1 }, (_, i) => __awaiter(void 0, void 0, void 0, function* () {
         const pageUrl = `${url}/page/${i + startPage}`;
         try {
@@ -60,25 +66,44 @@ const getThreadsData = (...args_1) => __awaiter(void 0, [...args_1], void 0, fun
                     }
                 }
                 catch (error) {
-                    console.log(error);
+                    throw new Error("Failed to fetch threads: " + error.message);
                 }
             });
         }
         catch (error) {
-            console.log(error);
+            throw new Error("Failed to fetch threads: " + error.message);
         }
     })));
     yield Promise.all(promises);
     return Array.from(threads.values());
 });
 exports.getThreadsData = getThreadsData;
-exports.getThreads = (0, express_async_handler_1.default)((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getThreads = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b;
-    const data = yield (0, exports.getThreadsData)((_a = req.query) === null || _a === void 0 ? void 0 : _a.startPage, (_b = req.query) === null || _b === void 0 ? void 0 : _b.endPage);
-    if (data.length === 0) {
-        const err = new Error("No mirror threads found.");
-        err.status(400);
-        next(err);
+    const startPage = Number((_a = req.query) === null || _a === void 0 ? void 0 : _a.startPage) || 1;
+    const endPage = Number((_b = req.query) === null || _b === void 0 ? void 0 : _b.endPage) || 50;
+    try {
+        const data = yield (0, exports.getThreadsData)(startPage, endPage);
+        if (data.length === 0) {
+            return res.status(404).json({
+                error: "No mirror threads found",
+            });
+        }
+        res.setHeader("Cache-Control", "public, max-age=300");
+        return res.json({
+            success: true,
+            data,
+            meta: {
+                total: data.length,
+                startPage,
+                endPage,
+            },
+        });
     }
-    return res.json(data);
+    catch (error) {
+        return res.status(500).json({
+            error: "Failed to fetch threads",
+            message: error.message,
+        });
+    }
 }));

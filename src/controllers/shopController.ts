@@ -3,11 +3,26 @@ import { load } from "cheerio";
 import asyncHandler from "express-async-handler";
 import { Request, Response } from "express";
 
+export type ShopItem = {
+  id: string;
+  fee: number | null;
+  icon: string;
+  name: string;
+  baseType: string;
+  quality: number | null;
+  enchantMods: string[] | null;
+  implicitMods: string[] | null;
+  explicitMods: string[] | null;
+  fracturedMods: string[] | null;
+  craftedMods: string[] | null;
+  crucibleMods: string[] | null;
+};
+
 export type ShopType = {
   profileName: string;
-  characterName: string;
+  characterName: string | null;
   threadIndex: number;
-  items: any[];
+  items: ShopItem[];
 };
 
 export const getShopData = async (index: number): Promise<ShopType> => {
@@ -18,7 +33,6 @@ export const getShopData = async (index: number): Promise<ShopType> => {
   };
 
   try {
-    // clean response into array of JSON objects
     let serviceItems = [];
     const threadUrl = `https://www.pathofexile.com/forum/view-thread/${index}`;
     const threadResponse = await axios.get(threadUrl, headers);
@@ -56,14 +70,6 @@ export const getShopData = async (index: number): Promise<ShopType> => {
         });
       }
     }
-    //const apiUrl = `http://www.pathofexile.com/character-window/get-characters?accountName=${profileName}`;
-    //const characterResponse = (await axios.get(apiUrl, headers)).data;
-    /*for (const character of characterResponse) {
-      if (character.league === "Standard") {
-        characterName = character.name;
-        break;
-      }
-    } implemenet rate limit */
 
     if (scriptContent.includes("DeferredItemRenderer")) {
       const arrayStartIndex = scriptContent.indexOf("new R(") + 6; // clean string
@@ -123,11 +129,25 @@ export const getShopData = async (index: number): Promise<ShopType> => {
       items: serviceItems,
     };
   } catch (error) {
-    console.error(error);
+    throw new Error("Failed to fetch shop data.");
   }
 };
 
 export const getShops = asyncHandler(async (req: Request, res: Response) => {
-  const data = await getShopData(req.params.threadIndex);
+  const threadIndex = parseInt(req.params.threadIndex);
+
+  if (isNaN(threadIndex) || threadIndex < 0) {
+    return res.status(400).json({
+      error: "Invalid thread index",
+    });
+  }
+
+  const data = await getShopData(threadIndex);
+  if (!data) {
+    return res.status(404).json({
+      error: "Shop not found",
+    });
+  }
+
   return res.json(data);
 });

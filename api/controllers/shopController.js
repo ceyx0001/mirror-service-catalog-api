@@ -23,7 +23,6 @@ const getShopData = (index) => __awaiter(void 0, void 0, void 0, function* () {
         },
     };
     try {
-        // clean response into array of JSON objects
         let serviceItems = [];
         const threadUrl = `https://www.pathofexile.com/forum/view-thread/${index}`;
         const threadResponse = yield axios_1.default.get(threadUrl, headers);
@@ -60,14 +59,6 @@ const getShopData = (index) => __awaiter(void 0, void 0, void 0, function* () {
                 });
             }
         }
-        //const apiUrl = `http://www.pathofexile.com/character-window/get-characters?accountName=${profileName}`;
-        //const characterResponse = (await axios.get(apiUrl, headers)).data;
-        /*for (const character of characterResponse) {
-          if (character.league === "Standard") {
-            characterName = character.name;
-            break;
-          }
-        } implemenet rate limit */
         if (scriptContent.includes("DeferredItemRenderer")) {
             const arrayStartIndex = scriptContent.indexOf("new R(") + 6; // clean string
             const arrayEndIndex = scriptContent.indexOf(".run()") - 2;
@@ -123,11 +114,22 @@ const getShopData = (index) => __awaiter(void 0, void 0, void 0, function* () {
         };
     }
     catch (error) {
-        console.error(error);
+        throw new Error("Failed to fetch shop data.");
     }
 });
 exports.getShopData = getShopData;
 exports.getShops = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const data = yield (0, exports.getShopData)(req.params.threadIndex);
+    const threadIndex = parseInt(req.params.threadIndex);
+    if (isNaN(threadIndex) || threadIndex < 0) {
+        return res.status(400).json({
+            error: "Invalid thread index",
+        });
+    }
+    const data = yield (0, exports.getShopData)(threadIndex);
+    if (!data) {
+        return res.status(404).json({
+            error: "Shop not found",
+        });
+    }
     return res.json(data);
 }));

@@ -1,4 +1,27 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -35,8 +58,14 @@ const search_1 = require("./searches/search");
 const papaparse_1 = __importDefault(require("papaparse"));
 const stream_1 = require("stream");
 const pg_copy_streams_1 = require("pg-copy-streams");
-const fs_1 = __importDefault(require("fs"));
+const fs_1 = __importStar(require("fs"));
 const path_1 = __importDefault(require("path"));
+const fsFunctions_1 = require("./csv/fsFunctions");
+const ALLOWED_TABLES = {
+    CATALOG: "catalog",
+    ITEMS: "items",
+    MODS: "mods",
+};
 function updateCatalog(shops) {
     return __awaiter(this, void 0, void 0, function* () {
         const itemsToInsert = new Map();
@@ -76,6 +105,9 @@ function updateCatalog(shops) {
         }
         function copyCSVToTable(client, filePath, tableName) {
             return __awaiter(this, void 0, void 0, function* () {
+                if (!Object.values(ALLOWED_TABLES).includes(tableName)) {
+                    throw new Error("Invalid table name");
+                }
                 return new Promise((resolve, reject) => {
                     const stream = client.query((0, pg_copy_streams_1.from)(`COPY ${tableName} FROM STDIN WITH DELIMITER ',' CSV HEADER`));
                     const fileStream = fs_1.default.createReadStream(filePath);
@@ -116,28 +148,38 @@ function updateCatalog(shops) {
             }
         });
         const outputDirectory = path_1.default.join(__dirname, "csv");
-        fs_1.default.writeFileSync(path_1.default.join(outputDirectory, "catalog.csv"), papaparse_1.default.unparse(shopsToInsert));
-        fs_1.default.writeFileSync(path_1.default.join(outputDirectory, "items.csv"), papaparse_1.default.unparse(Array.from(itemsToInsert.values())));
-        fs_1.default.writeFileSync(path_1.default.join(outputDirectory, "mods.csv"), papaparse_1.default.unparse(Array.from(modsToInsert.values())));
-        const client = yield db_1.pool.connect();
         try {
-            yield client.query("BEGIN");
-            const truncate = `TRUNCATE TABLE catalog CASCADE`;
-            yield client.query(truncate);
+            yield (0, fsFunctions_1.ensureSecureDirectory)(outputDirectory);
             yield Promise.all([
-                copyCSVToTable(client, path_1.default.join(outputDirectory, "catalog.csv"), "catalog"),
-                copyCSVToTable(client, path_1.default.join(outputDirectory, "items.csv"), "items"),
-                copyCSVToTable(client, path_1.default.join(outputDirectory, "mods.csv"), "mods"),
+                (0, fsFunctions_1.writeSecureFile)(path_1.default.join(outputDirectory, "catalog.csv"), papaparse_1.default.unparse(shopsToInsert)),
+                (0, fsFunctions_1.writeSecureFile)(path_1.default.join(outputDirectory, "items.csv"), papaparse_1.default.unparse(Array.from(itemsToInsert.values()))),
+                (0, fsFunctions_1.writeSecureFile)(path_1.default.join(outputDirectory, "mods.csv"), papaparse_1.default.unparse(Array.from(modsToInsert.values()))),
             ]);
-            yield client.query("COMMIT");
-            console.log("Catalog loaded successfully.");
+            const client = yield db_1.pool.connect();
+            try {
+                yield client.query("BEGIN");
+                const truncate = `TRUNCATE TABLE catalog CASCADE`;
+                yield client.query(truncate);
+                yield Promise.all([
+                    copyCSVToTable(client, path_1.default.join(outputDirectory, "catalog.csv"), ALLOWED_TABLES.CATALOG),
+                    copyCSVToTable(client, path_1.default.join(outputDirectory, "items.csv"), ALLOWED_TABLES.ITEMS),
+                    copyCSVToTable(client, path_1.default.join(outputDirectory, "mods.csv"), ALLOWED_TABLES.MODS),
+                ]);
+                yield client.query("COMMIT");
+                console.log("Catalog loaded successfully.");
+            }
+            catch (error) {
+                yield client.query("ROLLBACK");
+                console.error("Error loading catalog:", error);
+            }
+            finally {
+                client.release();
+            }
         }
         catch (error) {
-            yield client.query("ROLLBACK");
-            console.error("Error loading catalog:", error);
-        }
-        finally {
-            client.release();
+            const files = ["catalog.csv", "items.csv", "mods.csv"];
+            yield Promise.all(files.map((file) => fs_1.promises.unlink(path_1.default.join(outputDirectory, file)).catch(() => { })));
+            throw new Error(`Catalog update failed: ${error.message}`);
         }
     });
 }
@@ -162,6 +204,10 @@ function getAllThreads() {
 }
 function getShopsInRange(cursor) {
     return __awaiter(this, void 0, void 0, function* () {
+        if ((cursor === null || cursor === void 0 ? void 0 : cursor.limit) > 50)
+            throw new Error("Maximum limit exceeded while getting shops.");
+        if ((cursor === null || cursor === void 0 ? void 0 : cursor.threadIndex) < 0)
+            throw new Error("Invalid thread index while getting shops. Thread index must be positive.");
         try {
             const result = yield db_1.db.query.catalog.findMany({
                 with: {
@@ -184,7 +230,7 @@ function getShopsInRange(cursor) {
             return result;
         }
         catch (error) {
-            console.error(error);
+            throw new Error(`Error getting shops in range: ${error}`);
         }
     });
 }

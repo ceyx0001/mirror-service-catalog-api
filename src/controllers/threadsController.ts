@@ -10,14 +10,24 @@ export type Thread = {
   title: string;
 };
 
+export type ThreadsQuery = {
+  startPage?: number;
+  endPage?: number;
+};
+
+const urlSelling = `https://www.pathofexile.com/forum/view-forum/standard-trading-selling`;
+const urlShops = `https://www.pathofexile.com/forum/view-forum/standard-trading-shops`;
+const urls = [urlSelling, urlShops];
+
 export const getThreadsData = async (
   startPage: number = 1,
   endPage: number = 50
 ) => {
+  if (startPage < 1) throw new Error("Start page must be >= 1");
+  if (endPage < startPage) throw new Error("End page must be >= start page");
+  if (endPage - startPage > 100) throw new Error("Maximum page range exceeded");
+
   const threads = new Map<string, Thread>();
-  const urlSelling = `https://www.pathofexile.com/forum/view-forum/standard-trading-selling`;
-  const urlShops = `https://www.pathofexile.com/forum/view-forum/standard-trading-shops`;
-  const urls = [urlSelling, urlShops];
 
   const promises = urls.flatMap((url) =>
     Array.from({ length: endPage - startPage + 1 }, async (_, i) => {
@@ -62,11 +72,11 @@ export const getThreadsData = async (
               threads.set(thread.profileName, thread);
             }
           } catch (error) {
-            console.log(error);
+            throw new Error("Failed to fetch threads: " + error.message);
           }
         });
       } catch (error) {
-        console.log(error);
+        throw new Error("Failed to fetch threads: " + error.message);
       }
     })
   );
@@ -76,13 +86,34 @@ export const getThreadsData = async (
 };
 
 export const getThreads = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const data = await getThreadsData(req.query?.startPage, req.query?.endPage);
-    if (data.length === 0) {
-      const err: any = new Error("No mirror threads found.");
-      err.status(400);
-      next(err);
+  async (req: Request<{}, {}, {}, ThreadsQuery>, res: Response) => {
+    const startPage = Number(req.query?.startPage) || 1;
+    const endPage = Number(req.query?.endPage) || 50;
+
+    try {
+      const data = await getThreadsData(startPage, endPage);
+
+      if (data.length === 0) {
+        return res.status(404).json({
+          error: "No mirror threads found",
+        });
+      }
+
+      res.setHeader("Cache-Control", "public, max-age=300");
+      return res.json({
+        success: true,
+        data,
+        meta: {
+          total: data.length,
+          startPage,
+          endPage,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({
+        error: "Failed to fetch threads",
+        message: error.message,
+      });
     }
-    return res.json(data);
   }
 );

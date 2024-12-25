@@ -7,8 +7,17 @@ import { filterItems, groupMods, Filters } from "./searches/search";
 import Papa from "papaparse";
 import { pipeline } from "stream";
 import { from as copyFrom } from "pg-copy-streams";
-import fs from "fs";
+import fs, { promises as fsPromises } from "fs";
 import path from "path";
+import { ensureSecureDirectory, writeSecureFile } from "./csv/fsFunctions";
+
+const ALLOWED_TABLES = {
+  CATALOG: "catalog",
+  ITEMS: "items",
+  MODS: "mods",
+} as const;
+
+type AllowedTable = (typeof ALLOWED_TABLES)[keyof typeof ALLOWED_TABLES];
 
 export async function updateCatalog(shops) {
   const itemsToInsert: Map<string, SelectItem> = new Map();
@@ -48,6 +57,10 @@ export async function updateCatalog(shops) {
   }
 
   async function copyCSVToTable(client, filePath, tableName) {
+    if (!Object.values(ALLOWED_TABLES).includes(tableName as AllowedTable)) {
+      throw new Error("Invalid table name");
+    }
+
     return new Promise<void>((resolve, reject) => {
       const stream = client.query(
         copyFrom(`COPY ${tableName} FROM STDIN WITH DELIMITER ',' CSV HEADER`)
@@ -92,43 +105,66 @@ export async function updateCatalog(shops) {
   });
 
   const outputDirectory = path.join(__dirname, "csv");
-  fs.writeFileSync(
-    path.join(outputDirectory, "catalog.csv"),
-    Papa.unparse(shopsToInsert)
-  );
-  fs.writeFileSync(
-    path.join(outputDirectory, "items.csv"),
-    Papa.unparse(Array.from(itemsToInsert.values()))
-  );
-  fs.writeFileSync(
-    path.join(outputDirectory, "mods.csv"),
-    Papa.unparse(Array.from(modsToInsert.values()))
-  );
 
-  const client = await pool.connect();
   try {
-    await client.query("BEGIN");
-
-    const truncate = `TRUNCATE TABLE catalog CASCADE`;
-    await client.query(truncate);
+    await ensureSecureDirectory(outputDirectory);
 
     await Promise.all([
-      copyCSVToTable(
-        client,
+      writeSecureFile(
         path.join(outputDirectory, "catalog.csv"),
-        "catalog"
+        Papa.unparse(shopsToInsert)
       ),
-      copyCSVToTable(client, path.join(outputDirectory, "items.csv"), "items"),
-      copyCSVToTable(client, path.join(outputDirectory, "mods.csv"), "mods"),
+      writeSecureFile(
+        path.join(outputDirectory, "items.csv"),
+        Papa.unparse(Array.from(itemsToInsert.values()))
+      ),
+      writeSecureFile(
+        path.join(outputDirectory, "mods.csv"),
+        Papa.unparse(Array.from(modsToInsert.values()))
+      ),
     ]);
 
-    await client.query("COMMIT");
-    console.log("Catalog loaded successfully.");
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const truncate = `TRUNCATE TABLE catalog CASCADE`;
+      await client.query(truncate);
+
+      await Promise.all([
+        copyCSVToTable(
+          client,
+          path.join(outputDirectory, "catalog.csv"),
+          ALLOWED_TABLES.CATALOG
+        ),
+        copyCSVToTable(
+          client,
+          path.join(outputDirectory, "items.csv"),
+          ALLOWED_TABLES.ITEMS
+        ),
+        copyCSVToTable(
+          client,
+          path.join(outputDirectory, "mods.csv"),
+          ALLOWED_TABLES.MODS
+        ),
+      ]);
+
+      await client.query("COMMIT");
+      console.log("Catalog loaded successfully.");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("Error loading catalog:", error);
+    } finally {
+      client.release();
+    }
   } catch (error) {
-    await client.query("ROLLBACK");
-    console.error("Error loading catalog:", error);
-  } finally {
-    client.release();
+    const files = ["catalog.csv", "items.csv", "mods.csv"];
+    await Promise.all(
+      files.map((file) =>
+        fsPromises.unlink(path.join(outputDirectory, file)).catch(() => {})
+      )
+    );
+    throw new Error(`Catalog update failed: ${error.message}`);
   }
 }
 
@@ -153,6 +189,13 @@ export async function getShopsInRange(cursor: {
   threadIndex: number;
   limit: number;
 }) {
+  if (cursor?.limit > 50)
+    throw new Error("Maximum limit exceeded while getting shops.");
+  if (cursor?.threadIndex < 0)
+    throw new Error(
+      "Invalid thread index while getting shops. Thread index must be positive."
+    );
+
   try {
     const result = await db.query.catalog.findMany({
       with: {
@@ -176,7 +219,7 @@ export async function getShopsInRange(cursor: {
 
     return result;
   } catch (error) {
-    console.error(error);
+    throw new Error(`Error getting shops in range: ${error}`);
   }
 }
 

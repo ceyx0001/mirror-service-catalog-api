@@ -121,7 +121,7 @@ async function applyFilters(
         }
         return res;
       } catch (error) {
-        console.error(
+        throw new Error(
           "Failed to execute prepared query with pagination: " + error
         );
       }
@@ -155,11 +155,11 @@ async function applyFilters(
         const prepared = db.with(sq).select().from(sq).prepare("p2");
         return await prepared.execute();
       } catch (error) {
-        console.error("Failed to execute prepared query: " + error);
+        throw new Error("Failed to execute prepared query: " + error);
       }
     }
   } catch (error) {
-    console.error("Failed to build query: " + error);
+    throw new Error("Failed to build query: " + error);
   }
 }
 
@@ -168,7 +168,7 @@ export const andTitleFilter: Strategy = {
     if (filter.length === 0) {
       return table;
     }
-    
+
     if (!table) {
       table = catalog;
     }
@@ -236,7 +236,7 @@ export const andModFilter: Strategy = {
 
     if (filter.length === 0) {
       return await db.select().from(filteredMods);
-    } 
+    }
 
     const res = await applyFilters(
       filter,

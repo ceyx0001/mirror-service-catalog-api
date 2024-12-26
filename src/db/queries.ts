@@ -67,10 +67,9 @@ export async function updateCatalog(shops) {
       );
       const fileStream = fs.createReadStream(filePath);
 
-      pipeline(fileStream, stream, (err) => {
-        if (err) {
-          console.error("Import failed:", err);
-          return reject(err);
+      pipeline(fileStream, stream, (error) => {
+        if (error) {
+          return reject("Import failed: " + error);
         }
         resolve();
       });
@@ -150,7 +149,6 @@ export async function updateCatalog(shops) {
       ]);
 
       await client.query("COMMIT");
-      console.log("Catalog loaded successfully.");
     } catch (error) {
       await client.query("ROLLBACK");
       throw new Error("Error loading catalog: " + error);

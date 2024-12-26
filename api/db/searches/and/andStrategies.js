@@ -85,7 +85,7 @@ function applyFilters(filters, parentTable, keyCol, columns, paginate) {
                     return res;
                 }
                 catch (error) {
-                    console.error("Failed to execute prepared query with pagination: " + error);
+                    throw new Error("Failed to execute prepared query with pagination: " + error);
                 }
             }
             else {
@@ -108,12 +108,12 @@ function applyFilters(filters, parentTable, keyCol, columns, paginate) {
                     return yield prepared.execute();
                 }
                 catch (error) {
-                    console.error("Failed to execute prepared query: " + error);
+                    throw new Error("Failed to execute prepared query: " + error);
                 }
             }
         }
         catch (error) {
-            console.error("Failed to build query: " + error);
+            throw new Error("Failed to build query: " + error);
         }
     });
 }

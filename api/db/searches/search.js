@@ -90,7 +90,7 @@ function filterItems(filters, cursors, limit) {
             return res;
         }
         catch (error) {
-            console.error(error);
+            throw new Error("Failed to filter items: " + error);
         }
     });
 }

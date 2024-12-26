@@ -103,7 +103,6 @@ function getItems(filters, cursors, limit) {
             } while (filteredTable instanceof Array &&
                 filteredTable.length === 0 &&
                 !noResult(filtersArray));
-            // need to not use entire table if the previous filter didnt do anything -> test searching for a title only that doesnt exist
             if (filteredTable &&
                 filteredTable instanceof Array &&
                 filteredTable.length > 0) {
@@ -129,7 +128,7 @@ function getItems(filters, cursors, limit) {
             return { array: [], cursor: null };
         }
         catch (error) {
-            console.error(error);
+            throw new Error("Failed to search for items: " + error);
         }
     });
 }

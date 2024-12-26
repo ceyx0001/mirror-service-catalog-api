@@ -7,18 +7,16 @@ import * as modsSchema from "./schemas/modsSchema";
 
 let db;
 let pool: Pool;
-main().catch((err) => console.error(err));
+main().catch((error) => {
+  throw new Error("Failed to connect to database: " + error);
+});
 async function main() {
-  try {
-    const connectionString = process.env.POSTGRES_URL;
-    pool = new Pool({ connectionString: connectionString });
-    const client = postgres(connectionString);
-    db = drizzle(client, {
-      schema: { ...catalogSchema, ...itemsSchema, ...modsSchema },
-    });
-  } catch (error) {
-    throw new Error("Failed to connect to database: " + error);
-  }
+  const connectionString = process.env.POSTGRES_URL;
+  pool = new Pool({ connectionString: connectionString });
+  const client = postgres(connectionString);
+  db = drizzle(client, {
+    schema: { ...catalogSchema, ...itemsSchema, ...modsSchema },
+  });
 }
 
 export { db, pool };

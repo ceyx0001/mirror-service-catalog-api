@@ -111,10 +111,9 @@ function updateCatalog(shops) {
                 return new Promise((resolve, reject) => {
                     const stream = client.query((0, pg_copy_streams_1.from)(`COPY ${tableName} FROM STDIN WITH DELIMITER ',' CSV HEADER`));
                     const fileStream = fs_1.default.createReadStream(filePath);
-                    (0, stream_1.pipeline)(fileStream, stream, (err) => {
-                        if (err) {
-                            console.error("Import failed:", err);
-                            return reject(err);
+                    (0, stream_1.pipeline)(fileStream, stream, (error) => {
+                        if (error) {
+                            return reject("Import failed: " + error);
                         }
                         resolve();
                     });
@@ -166,11 +165,10 @@ function updateCatalog(shops) {
                     copyCSVToTable(client, path_1.default.join(outputDirectory, "mods.csv"), ALLOWED_TABLES.MODS),
                 ]);
                 yield client.query("COMMIT");
-                console.log("Catalog loaded successfully.");
             }
             catch (error) {
                 yield client.query("ROLLBACK");
-                console.error("Error loading catalog:", error);
+                throw new Error("Error loading catalog: " + error);
             }
             finally {
                 client.release();

@@ -44,7 +44,9 @@ const itemsSchema = __importStar(require("./schemas/itemsSchema"));
 const modsSchema = __importStar(require("./schemas/modsSchema"));
 let db;
 let pool;
-main().catch((err) => console.error(err));
+main().catch((error) => {
+    throw new Error("Failed to connect to database: " + error);
+});
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
         const connectionString = process.env.POSTGRES_URL;
